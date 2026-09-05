@@ -1,0 +1,5 @@
+# 开发 / 打包依赖
+-r requirements.txt
+pytest>=8.0
+pyinstaller>=6.0
+pillow>=10.0  # 生成应用图标（python scripts/make_icon.py）

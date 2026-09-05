@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# 打包输出
+build/
+dist/
+
+# 迁移备份库（正式数据库 data/prices.db 保留，不入库由使用者自行决定）
+data/prices.backup-*.db
