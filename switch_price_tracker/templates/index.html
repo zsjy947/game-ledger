@@ -87,6 +87,7 @@
             <table id="cartridgeTable">
                 <thead>
                     <tr>
+                        <th class="cover-col">封面</th>
                         <th class="sortable" data-sort="category">分类</th>
                         <th class="sortable" data-sort="name">名称</th>
                         <th class="sortable" data-sort="price">价格</th>
@@ -97,7 +98,7 @@
                     </tr>
                 </thead>
                 <tbody id="tableBody">
-                    <tr><td colspan="7" class="empty-state">暂无数据，点击「＋ 新增卡带」开始添加</td></tr>
+                    <tr><td colspan="8" class="empty-state">暂无数据，点击「＋ 新增卡带」开始添加</td></tr>
                 </tbody>
             </table>
         </div>
@@ -121,9 +122,20 @@
                     </select>
                 </div>
                 <div class="form-group suggest-wrapper">
-                    <label for="formName">名称 <span class="required">*</span></label>
+                    <label for="formName">名称 <span class="required">*</span> <span class="label-hint">（输入名称可联想已有记录与内置游戏库）</span></label>
                     <input type="text" id="formName" placeholder="输入卡带名称" required autocomplete="off">
                     <div class="suggest-dropdown" id="suggestDropdown"></div>
+                </div>
+                <div class="form-group game-link-group" id="gameLinkGroup">
+                    <label>游戏库关联</label>
+                    <div class="game-chip" id="gameChip" style="display:none;">
+                        <img class="game-chip-cover" id="gameChipCover" alt="">
+                        <div class="game-chip-text">
+                            <span class="game-chip-title" id="gameChipTitle"></span>
+                            <span class="game-chip-meta" id="gameChipMeta"></span>
+                        </div>
+                        <button type="button" class="game-chip-remove" id="gameChipRemove" title="取消关联">&times;</button>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="formPrice">价格 (¥)</label>
@@ -160,6 +172,32 @@
         </div>
     </div>
 
+    <!-- 详情弹窗 -->
+    <div class="modal-overlay" id="detailOverlay">
+        <div class="modal modal-detail">
+            <div class="modal-header">
+                <h2>卡带详情</h2>
+                <button class="modal-close" id="detailClose">&times;</button>
+            </div>
+            <div class="detail-body">
+                <div class="detail-cover-wrap">
+                    <span class="detail-cover-fallback">🎮</span>
+                    <img class="detail-cover" id="detailCover" alt="封面">
+                </div>
+                <div class="detail-info">
+                    <div class="detail-name" id="detailName"></div>
+                    <div class="detail-tags" id="detailTags"></div>
+                    <div class="detail-rows" id="detailRows"></div>
+                    <div class="detail-intro" id="detailIntro"></div>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-outline" id="detailCloseBtn">关闭</button>
+                <button class="btn btn-primary" id="detailEditBtn">编辑此记录</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast 提示 -->
     <div class="toast" id="toast"></div>
 
@@ -185,6 +223,7 @@
         </div>
     </footer>
 
+    <script src="/static/games.js"></script>
     <script src="/static/app.js"></script>
 </body>
 </html>

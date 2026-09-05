@@ -11,6 +11,16 @@ const SOURCE_CLASS = {
     "支付宝刷券": "src-zfb",
 };
 
+// 内置游戏库（由 games.js 提供，含 id/标题/介绍/封面URL/热度）
+const GAMES = window.__GAMES__ || [];
+const GAMES_INDEX = {};
+for (const g of GAMES) GAMES_INDEX[g.i] = g;
+
+/** 封面地址：桌面端走 /cover/<id>（内置资源→缓存→在线）；安卓分支覆盖此函数。 */
+function coverUrl(gameId) {
+    return `/cover/${encodeURIComponent(gameId)}`;
+}
+
 // ── State ──────────────────────────────────────────────────────────────────
 let cartridges = [];
 let sortField = "updated_at";
@@ -18,6 +28,9 @@ let sortDir = "desc";
 let deleteTargetId = null;
 let suggestTimer = null;
 let suggestData = [];
+let selectedGame = null; // 新增/编辑弹窗中关联的内置游戏条目
+let introDraft = "";     // 待提交的游戏介绍
+let detailRecord = null; // 详情弹窗当前记录
 
 // ── DOM refs ───────────────────────────────────────────────────────────────
 const $ = (sel) => document.querySelector(sel);
@@ -30,6 +43,7 @@ const modalOverlay = $("#modalOverlay");
 const modalTitle = $("#modalTitle");
 const cartridgeForm = $("#cartridgeForm");
 const confirmOverlay = $("#confirmOverlay");
+const detailOverlay = $("#detailOverlay");
 const toast = $("#toast");
 const formName = $("#formName");
 const formPrice = $("#formPrice");
@@ -40,6 +54,10 @@ const formNotes = $("#formNotes");
 const editIdInput = $("#editId");
 const submitBtn = $("#submitBtn");
 const suggestDropdown = $("#suggestDropdown");
+const gameChip = $("#gameChip");
+const gameChipTitle = $("#gameChipTitle");
+const gameChipMeta = $("#gameChipMeta");
+const gameChipCover = $("#gameChipCover");
 
 // ── 来源选项 ───────────────────────────────────────────────────────────────
 function buildSourceOptions() {
@@ -81,6 +99,55 @@ function readFormSource() {
     return formSource.value === SOURCE_CUSTOM
         ? formSourceCustom.value.trim()
         : formSource.value;
+}
+
+// ── 游戏库关联 ─────────────────────────────────────────────────────────────
+function searchGames(keyword, limit = 6) {
+    const q = (keyword || "").trim().toLowerCase();
+    if (!q) return [];
+    const matched = [];
+    for (const g of GAMES) {
+        const t = g.t.toLowerCase();
+        if (t.includes(q)) matched.push(g);
+    }
+    // 前缀匹配优先，其次更短标题（正统作品通常比合集/长尾条目短）
+    matched.sort((a, b) => {
+        const ap = a.t.toLowerCase().startsWith(q) ? 0 : 1;
+        const bp = b.t.toLowerCase().startsWith(q) ? 0 : 1;
+        if (ap !== bp) return ap - bp;
+        return a.t.length - b.t.length;
+    });
+    return matched.slice(0, limit);
+}
+
+function renderGameChip() {
+    if (!selectedGame) {
+        gameChip.style.display = "none";
+        return;
+    }
+    gameChip.style.display = "flex";
+    gameChipTitle.textContent = selectedGame.t;
+    const meta = [selectedGame.p, selectedGame.dt].filter(Boolean).join(" · ");
+    gameChipMeta.textContent = meta || "已关联内置游戏库";
+    gameChipCover.src = coverUrl(selectedGame.i);
+    gameChipCover.style.display = "";
+    gameChipCover.onerror = () => {
+        gameChipCover.style.display = "none";
+    };
+}
+
+function pickGame(game) {
+    selectedGame = game;
+    introDraft = game.d || "";
+    if (!formName.value.trim()) formName.value = game.t;
+    renderGameChip();
+    hideSuggest();
+}
+
+function clearGame() {
+    selectedGame = null;
+    introDraft = "";
+    renderGameChip();
 }
 
 // ── API helpers ────────────────────────────────────────────────────────────
@@ -142,7 +209,7 @@ function renderTable() {
 
     if (cartridges.length === 0) {
         tableBody.innerHTML =
-            '<tr><td colspan="7" class="empty-state">暂无数据，点击「＋ 新增卡带」开始添加</td></tr>';
+            '<tr><td colspan="8" class="empty-state">暂无数据，点击「＋ 新增卡带」开始添加</td></tr>';
         return;
     }
 
@@ -150,8 +217,15 @@ function renderTable() {
         .map(
             (c) => `
             <tr>
+                <td class="cover-cell">
+                    <div class="cover-thumb${c.cover ? "" : " empty"}">${
+                        c.cover
+                            ? `<img loading="lazy" src="${coverUrl(c.cover)}" onerror="this.remove()">`
+                            : ""
+                    }</div>
+                </td>
                 <td><span class="category-tag ${c.category.toLowerCase()}">${esc(c.category)}</span></td>
-                <td>${esc(c.name)}</td>
+                <td><span class="name-link" data-id="${c.id}" title="查看详情">${esc(c.name)}</span></td>
                 <td class="price-cell">¥${formatPrice(c.price)}</td>
                 <td>${
                     c.source
@@ -174,6 +248,9 @@ function renderTable() {
     });
     tableBody.querySelectorAll(".delete-btn").forEach((btn) => {
         btn.addEventListener("click", () => openDeleteConfirm(parseInt(btn.dataset.id)));
+    });
+    tableBody.querySelectorAll(".name-link").forEach((el) => {
+        el.addEventListener("click", () => openDetailModal(parseInt(el.dataset.id)));
     });
 }
 
@@ -242,6 +319,7 @@ function openAddModal() {
     editIdInput.value = "";
     formSourceCustom.value = "";
     submitBtn.textContent = "保存";
+    clearGame();
     syncSourceCustomVisibility();
     suggestData = [];
     hideSuggest();
@@ -260,6 +338,9 @@ function openEditModal(id) {
     formSourceCustom.value = "";
     setFormSource(record.source || "");
     formNotes.value = record.notes || "";
+    selectedGame = record.cover ? GAMES_INDEX[record.cover] || { i: record.cover, t: record.name, d: record.intro || "" } : null;
+    introDraft = record.intro || "";
+    renderGameChip();
     submitBtn.textContent = "更新";
     suggestData = [];
     hideSuggest();
@@ -297,6 +378,8 @@ async function submitForm(e) {
         price: price === "" ? 0 : parseFloat(price),
         notes,
         source,
+        cover: selectedGame ? selectedGame.i : "",
+        intro: introDraft,
     };
 
     let result;
@@ -341,41 +424,42 @@ async function onNameInput() {
         return;
     }
 
-    const result = await api(`/api/cartridges/suggest?q=${encodeURIComponent(q)}`);
-    if (!result.success || !result.data.length) {
-        hideSuggest();
-        return;
-    }
+    const [recordsResult, gameMatches] = await Promise.all([
+        api(`/api/cartridges/suggest?q=${encodeURIComponent(q)}`),
+        Promise.resolve(searchGames(q)),
+    ]);
 
-    suggestData = result.data;
-    renderSuggest();
+    suggestData = recordsResult.success ? recordsResult.data : [];
+    renderSuggest(gameMatches);
 }
 
-function renderSuggest() {
-    if (!suggestData.length) {
+function renderSuggest(gameMatches = []) {
+    if (!suggestData.length && !gameMatches.length) {
         hideSuggest();
         return;
     }
 
     const inputPrice = formPrice.value.trim() !== "" ? parseFloat(formPrice.value) : null;
 
-    suggestDropdown.innerHTML = suggestData
-        .map((item) => {
-            const existingPrice = item.price || 0;
-            let compareHtml = "";
+    let html = "";
 
-            if (inputPrice !== null && !isNaN(inputPrice)) {
-                const diff = inputPrice - existingPrice;
-                if (diff > 0.01) {
-                    compareHtml = `<span class="suggest-compare price-up">涨 ¥${diff.toFixed(2)}</span>`;
-                } else if (diff < -0.01) {
-                    compareHtml = `<span class="suggest-compare price-down">降 ¥${Math.abs(diff).toFixed(2)}</span>`;
-                } else {
-                    compareHtml = `<span class="suggest-compare price-same">价格持平</span>`;
+    if (suggestData.length) {
+        html += '<div class="suggest-section">已有记录</div>';
+        html += suggestData
+            .map((item) => {
+                const existingPrice = item.price || 0;
+                let compareHtml = "";
+                if (inputPrice !== null && !isNaN(inputPrice)) {
+                    const diff = inputPrice - existingPrice;
+                    if (diff > 0.01) {
+                        compareHtml = `<span class="suggest-compare price-up">涨 ¥${diff.toFixed(2)}</span>`;
+                    } else if (diff < -0.01) {
+                        compareHtml = `<span class="suggest-compare price-down">降 ¥${Math.abs(diff).toFixed(2)}</span>`;
+                    } else {
+                        compareHtml = `<span class="suggest-compare price-same">价格持平</span>`;
+                    }
                 }
-            }
-
-            return `
+                return `
                 <div class="suggest-item" data-id="${item.id}">
                     <span class="suggest-name">${esc(item.name)}</span>
                     <span class="category-tag ${item.category.toLowerCase()}">${esc(item.category)}</span>
@@ -383,16 +467,35 @@ function renderSuggest() {
                     ${compareHtml}
                     <span class="suggest-hint">→ 更新此记录</span>
                 </div>`;
-        })
-        .join("");
+            })
+            .join("");
+    }
 
+    if (gameMatches.length) {
+        html += '<div class="suggest-section">内置游戏库 · 点击关联封面与介绍</div>';
+        html += gameMatches
+            .map(
+                (g) => `
+                <div class="suggest-item game-item" data-game="${esc(g.i)}">
+                    <span class="suggest-game-cover"><img loading="lazy" src="${coverUrl(g.i)}" onerror="this.remove()"></span>
+                    <span class="suggest-name">${esc(g.t)}</span>
+                    <span class="suggest-existing">${esc(g.p || "")}</span>
+                    <span class="suggest-hint">→ 关联</span>
+                </div>`
+            )
+            .join("");
+    }
+
+    suggestDropdown.innerHTML = html;
     suggestDropdown.classList.add("active");
 
-    // Bind click events
-    suggestDropdown.querySelectorAll(".suggest-item").forEach((el) => {
+    suggestDropdown.querySelectorAll(".suggest-item[data-id]").forEach((el) => {
+        el.addEventListener("click", () => fillFromSuggest(parseInt(el.dataset.id)));
+    });
+    suggestDropdown.querySelectorAll(".suggest-item.game-item").forEach((el) => {
         el.addEventListener("click", () => {
-            const id = parseInt(el.dataset.id);
-            fillFromSuggest(id);
+            const game = GAMES_INDEX[el.dataset.game];
+            if (game) pickGame(game);
         });
     });
 }
@@ -411,9 +514,68 @@ function fillFromSuggest(id) {
     formSourceCustom.value = "";
     setFormSource(record.source || "");
     formNotes.value = record.notes || "";
+    selectedGame = record.cover ? GAMES_INDEX[record.cover] || { i: record.cover, t: record.name, d: record.intro || "" } : null;
+    introDraft = record.intro || "";
+    renderGameChip();
     modalTitle.textContent = "更新卡带";
     submitBtn.textContent = "更新";
     hideSuggest();
+}
+
+// ── Detail modal ───────────────────────────────────────────────────────────
+function openDetailModal(id) {
+    const record = cartridges.find((c) => c.id === id);
+    if (!record) return;
+    detailRecord = record;
+
+    $("#detailName").textContent = record.name;
+    $("#detailCover").style.display = record.cover ? "" : "none";
+    $("#detailCover").src = record.cover ? coverUrl(record.cover) : "";
+    $("#detailCover").onerror = () => {
+        $("#detailCover").style.display = "none";
+    };
+
+    const tags = [
+        `<span class="category-tag ${record.category.toLowerCase()}">${esc(record.category)}</span>`,
+        record.source
+            ? `<span class="source-tag ${sourceClass(record.source)}">${esc(record.source)}</span>`
+            : "",
+    ].filter(Boolean);
+    $("#detailTags").innerHTML = tags.join(" ");
+
+    const rows = [
+        ["价格", `¥${formatPrice(record.price)}`],
+        ["录入时间", formatDate(record.created_at)],
+        ["更新时间", formatDate(record.updated_at)],
+    ];
+    $("#detailRows").innerHTML = rows
+        .map(([k, v]) => `<div class="detail-row"><span>${k}</span><span>${v}</span></div>`)
+        .join("");
+
+    const game = record.cover ? GAMES_INDEX[record.cover] : null;
+    const intro = record.intro || (game ? game.d : "");
+    const introBox = $("#detailIntro");
+    if (intro) {
+        introBox.style.display = "";
+        introBox.innerHTML =
+            `<div class="detail-intro-title">游戏介绍${game ? "" : ""}</div>` +
+            `<p>${esc(intro)}</p>` +
+            (game
+                ? `<div class="detail-intro-meta">${esc(game.p || "")}${
+                      game.g ? " · " + esc(game.g) : ""
+                  }${game.dt ? " · " + esc(game.dt) : ""}</div>`
+                : "");
+    } else {
+        introBox.style.display = "none";
+        introBox.innerHTML = "";
+    }
+
+    detailOverlay.classList.add("active");
+}
+
+function closeDetailModal() {
+    detailRecord = null;
+    detailOverlay.classList.remove("active");
 }
 
 // ── Delete confirmation ────────────────────────────────────────────────────
@@ -482,6 +644,19 @@ modalOverlay.addEventListener("click", (e) => {
 });
 cartridgeForm.addEventListener("submit", submitForm);
 formSource.addEventListener("change", syncSourceCustomVisibility);
+$("#gameChipRemove").addEventListener("click", clearGame);
+
+// Detail events
+$("#detailClose").addEventListener("click", closeDetailModal);
+$("#detailCloseBtn").addEventListener("click", closeDetailModal);
+detailOverlay.addEventListener("click", (e) => {
+    if (e.target === detailOverlay) closeDetailModal();
+});
+$("#detailEditBtn").addEventListener("click", () => {
+    const id = detailRecord && detailRecord.id;
+    closeDetailModal();
+    if (id) openEditModal(id);
+});
 
 // Suggest events
 formName.addEventListener("input", () => {
@@ -512,6 +687,8 @@ document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
         if (confirmOverlay.classList.contains("active")) {
             closeDeleteConfirm();
+        } else if (detailOverlay.classList.contains("active")) {
+            closeDetailModal();
         } else if (modalOverlay.classList.contains("active")) {
             closeModal();
         }

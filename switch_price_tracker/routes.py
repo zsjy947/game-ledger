@@ -4,9 +4,9 @@
 响应统一为 {"success": bool, "data"?: ..., "message"?: ...} 结构。
 """
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, Response, jsonify, render_template, request
 
-from . import __version__, database
+from . import __version__, database, games
 
 bp = Blueprint("main", __name__)
 
@@ -16,6 +16,7 @@ VALID_CATEGORIES = ("NS", "NS2")
 SOURCE_PRESETS = ("拼多多福袋", "拼多多V3", "支付宝刷券")
 
 MAX_SOURCE_LENGTH = 50
+MAX_INTRO_LENGTH = 6000
 
 
 def _parse_payload(body: dict, existing: dict | None = None):
@@ -23,13 +24,15 @@ def _parse_payload(body: dict, existing: dict | None = None):
 
     更新场景传入 existing，未提供的字段回退到已有记录的值。
     Returns:
-        ((category, name, price, notes, source), None) 或 (None, 错误消息)。
+        ((category, name, price, notes, source, cover, intro), None) 或 (None, 错误消息)。
     """
     src = existing or {}
     category = str(body.get("category") or src.get("category") or "").strip()
     name = str(body.get("name") or src.get("name") or "").strip()
     notes = str(body.get("notes") if "notes" in body else src.get("notes") or "").strip()
     source = str(body.get("source") if "source" in body else src.get("source") or "").strip()
+    cover = str(body.get("cover") if "cover" in body else src.get("cover") or "").strip()
+    intro = str(body.get("intro") if "intro" in body else src.get("intro") or "").strip()
     price = body["price"] if "price" in body else src.get("price")
 
     if category not in VALID_CATEGORIES:
@@ -38,6 +41,10 @@ def _parse_payload(body: dict, existing: dict | None = None):
         return None, "名称不能为空"
     if len(source) > MAX_SOURCE_LENGTH:
         return None, f"来源不能超过 {MAX_SOURCE_LENGTH} 个字符"
+    if len(cover) > 64:
+        return None, "封面引用无效"
+    if len(intro) > MAX_INTRO_LENGTH:
+        return None, f"介绍不能超过 {MAX_INTRO_LENGTH} 个字符"
 
     if price is None or (isinstance(price, str) and not price.strip()):
         price = 0.0
@@ -49,7 +56,7 @@ def _parse_payload(body: dict, existing: dict | None = None):
         if price < 0:
             return None, "价格不能为负数"
 
-    return (category, name, price, notes, source), None
+    return (category, name, price, notes, source, cover, intro), None
 
 
 # ── 页面 ────────────────────────────────────────────────────────────────────
@@ -60,6 +67,17 @@ def index():
     return render_template(
         "index.html", version=__version__, source_presets=SOURCE_PRESETS
     )
+
+
+# ── 内置游戏库 ──────────────────────────────────────────────────────────────
+
+@bp.get("/cover/<game_id>")
+def game_cover(game_id: str):
+    """解析游戏封面：内置资源 → 本地缓存 → 在线下载缓存；失败返回 404。"""
+    data = games.resolve_cover(game_id)
+    if data is None:
+        return Response("cover not found", status=404, mimetype="text/plain")
+    return Response(data, mimetype="image/jpeg", headers={"Cache-Control": "public, max-age=604800"})
 
 
 # ── API ─────────────────────────────────────────────────────────────────────

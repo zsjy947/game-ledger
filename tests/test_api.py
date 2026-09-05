@@ -91,6 +91,47 @@ def test_source_filter(client):
     assert names == ["A"]
 
 
+def test_cover_and_intro_roundtrip(client):
+    resp = client.post(
+        "/api/cartridges",
+        json={
+            "category": "NS",
+            "name": "塞尔达",
+            "cover": "70010000000234",
+            "intro": "开放世界冒险。",
+        },
+    )
+    assert resp.status_code == 201
+    data = resp.get_json()["data"]
+    assert data["cover"] == "70010000000234"
+    assert data["intro"] == "开放世界冒险。"
+
+    # 解除关联
+    resp = client.put(f"/api/cartridges/{data['id']}", json={"cover": "", "intro": ""})
+    assert resp.get_json()["data"]["cover"] == ""
+
+    # intro 超长校验
+    resp = client.post(
+        "/api/cartridges", json={"category": "NS", "name": "x", "intro": "长" * 6001}
+    )
+    assert resp.status_code == 400
+    assert "介绍" in resp.get_json()["message"]
+
+
+def test_cover_route(client, monkeypatch):
+    """/cover/<id>：命中返回图片，未命中返回 404。"""
+    from switch_price_tracker import games
+
+    resp = client.get("/cover/unknown-game")
+    assert resp.status_code == 404
+
+    monkeypatch.setattr(games, "resolve_cover", lambda gid: b"\xff\xd8fake-jpeg")
+    resp = client.get("/cover/70010000000234")
+    assert resp.status_code == 200
+    assert resp.mimetype == "image/jpeg"
+    assert resp.data == b"\xff\xd8fake-jpeg"
+
+
 def test_delete_flow(client):
     record = client.post(
         "/api/cartridges", json={"category": "NS", "name": "待删", "price": 1}

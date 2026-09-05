@@ -21,8 +21,17 @@ def _add_source_column(conn) -> None:
         conn.execute("ALTER TABLE cartridges ADD COLUMN source TEXT NOT NULL DEFAULT ''")
 
 
+def _add_cover_intro_columns(conn) -> None:
+    """v2 → v3：新增游戏库关联字段（封面 ID 与游戏介绍）。"""
+    columns = [row["name"] for row in conn.execute("PRAGMA table_info(cartridges)")]
+    if "cover" not in columns:
+        conn.execute("ALTER TABLE cartridges ADD COLUMN cover TEXT NOT NULL DEFAULT ''")
+    if "intro" not in columns:
+        conn.execute("ALTER TABLE cartridges ADD COLUMN intro TEXT NOT NULL DEFAULT ''")
+
+
 # 当前 schema 版本
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 _TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS cartridges (
@@ -47,6 +56,9 @@ MIGRATIONS: dict[int, list] = {
     2: [
         _add_source_column,
         "CREATE INDEX IF NOT EXISTS idx_cartridges_source ON cartridges(source)",
+    ],
+    3: [
+        _add_cover_intro_columns,
     ],
 }
 
@@ -156,13 +168,20 @@ def search_suggest(name: str) -> list[dict]:
 # ── 写入 ────────────────────────────────────────────────────────────────────
 
 def add(
-    category: str, name: str, price: float, notes: str = "", source: str = ""
+    category: str,
+    name: str,
+    price: float,
+    notes: str = "",
+    source: str = "",
+    cover: str = "",
+    intro: str = "",
 ) -> dict:
     """新增一条卡带记录，返回完整的新记录。"""
     with connect() as conn:
         cursor = conn.execute(
-            "INSERT INTO cartridges (category, name, price, notes, source) VALUES (?, ?, ?, ?, ?)",
-            (category, name, price, notes, source),
+            "INSERT INTO cartridges (category, name, price, notes, source, cover, intro)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (category, name, price, notes, source, cover, intro),
         )
         row = conn.execute(
             "SELECT * FROM cartridges WHERE id = ?", (cursor.lastrowid,)
@@ -177,15 +196,17 @@ def update(
     price: float,
     notes: str = "",
     source: str = "",
+    cover: str = "",
+    intro: str = "",
 ) -> dict | None:
     """更新指定记录并返回更新后的数据；记录不存在时返回 None。"""
     with connect() as conn:
         cursor = conn.execute(
             """UPDATE cartridges
                SET category = ?, name = ?, price = ?, notes = ?, source = ?,
-                   updated_at = CURRENT_TIMESTAMP
+                   cover = ?, intro = ?, updated_at = CURRENT_TIMESTAMP
                WHERE id = ?""",
-            (category, name, price, notes, source, cartridge_id),
+            (category, name, price, notes, source, cover, intro, cartridge_id),
         )
         if cursor.rowcount == 0:
             return None

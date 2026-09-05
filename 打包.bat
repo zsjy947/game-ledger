@@ -32,7 +32,7 @@ if exist "dist\SwitchPriceTracker\data" (
     pause
 )
 echo Building, please wait (1-3 minutes)...
-"%VENV_PY%" -m PyInstaller --noconfirm --clean --onedir --windowed --icon "scripts\icon.ico" --name "SwitchPriceTracker" --add-data "switch_price_tracker\templates;switch_price_tracker\templates" --add-data "switch_price_tracker\static;switch_price_tracker\static" --collect-all webview --collect-all clr_loader --collect-all pythonnet --hidden-import webview.platforms.edgechromium --hidden-import webview.platforms.winforms launcher.py
+"%VENV_PY%" -m PyInstaller --noconfirm --clean --onedir --windowed --icon "scripts\icon.ico" --name "SwitchPriceTracker" --add-data "switch_price_tracker\templates;switch_price_tracker\templates" --add-data "switch_price_tracker\static;switch_price_tracker\static" --add-data "switch_price_tracker\assets;switch_price_tracker\assets" --collect-all webview --collect-all clr_loader --collect-all pythonnet --hidden-import webview.platforms.edgechromium --hidden-import webview.platforms.winforms launcher.py
 if errorlevel 1 (
     echo [ERROR] Build failed. See the log above.
     pause
