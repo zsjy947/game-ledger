@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('switch_price_tracker/templates', 'switch_price_tracker/templates'), ('switch_price_tracker/static', 'switch_price_tracker/static')]
+datas = [('switch_price_tracker/templates', 'switch_price_tracker/templates'), ('switch_price_tracker/static', 'switch_price_tracker/static'), ('switch_price_tracker/assets', 'switch_price_tracker/assets')]
 binaries = []
 hiddenimports = ['webview.platforms.edgechromium', 'webview.platforms.winforms']
 tmp_ret = collect_all('webview')
