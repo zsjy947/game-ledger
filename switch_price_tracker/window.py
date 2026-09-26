@@ -27,9 +27,12 @@ def _ensure_single_instance() -> bool:
         return True
     import ctypes
 
-    ctypes.windll.kernel32.CreateMutexW(None, False, _MUTEX_NAME)
+    # use_last_error=True：把 Win32 last error 保存到 ctypes 线程私有存储，
+    # 避免被 Python/ctypes 中间的系统调用覆盖（GetLastError() 直接读不可靠）
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateMutexW(None, False, _MUTEX_NAME)
     # ERROR_ALREADY_EXISTS = 183
-    return ctypes.windll.kernel32.GetLastError() != 183
+    return ctypes.get_last_error() != 183
 
 
 def _alert(message: str, title: str = "提示") -> None:

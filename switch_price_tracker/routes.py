@@ -4,6 +4,8 @@
 响应统一为 {"success": bool, "data"?: ..., "message"?: ...} 结构。
 """
 
+import math
+
 from flask import Blueprint, Response, jsonify, render_template, request
 
 from . import __version__, database, games
@@ -48,10 +50,15 @@ def _parse_payload(body: dict, existing: dict | None = None):
 
     if price is None or (isinstance(price, str) and not price.strip()):
         price = 0.0
+    elif isinstance(price, bool):
+        return None, "价格格式不正确"
     else:
         try:
             price = float(price)
         except (TypeError, ValueError):
+            return None, "价格格式不正确"
+        # NaN/Infinity 能通过上面的转换却无法写入 NOT NULL 列（SQLite 存为 NULL）
+        if not math.isfinite(price):
             return None, "价格格式不正确"
         if price < 0:
             return None, "价格不能为负数"

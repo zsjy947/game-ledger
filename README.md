@@ -85,7 +85,7 @@ switch-price-tracker/
 - 表结构由 `switch_price_tracker/database.py` 统一管理，采用 `PRAGMA user_version`
   轻量迁移：改表时把 `SCHEMA_VERSION` 加 1 并在 `MIGRATIONS` 追加步骤即可，
   首次运行会自动执行迁移，并把旧库备份为 `data/prices.backup-v<旧版本>.db`。
-  （当前版本：v2 —— v2 新增 `source` 来源字段。）
+  （当前版本：v3 —— v2 新增 `source` 来源字段，v3 新增 `cover`/`intro` 游戏库关联字段。）
 - 备份数据：直接复制 `data/prices.db`（应用未运行时）即可。
 - 测试使用临时数据库，不会触碰真实数据。
 

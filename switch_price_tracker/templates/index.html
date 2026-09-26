@@ -223,7 +223,9 @@
         </div>
     </footer>
 
-    <script src="/static/games.js"></script>
-    <script src="/static/app.js"></script>
+    <!-- games.js 7MB 数据文件：defer 解除首屏渲染阻塞；两个 defer 脚本按文档顺序执行，
+         保证 window.__GAMES__ 在 app.js 运行前就绪（安卓分支依赖同一契约） -->
+    <script src="/static/games.js" defer></script>
+    <script src="/static/app.js" defer></script>
 </body>
 </html>

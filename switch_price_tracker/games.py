@@ -73,6 +73,11 @@ def resolve_cover(game_id: str) -> bytes | None:
     except Exception:  # noqa: BLE001 - 离线/网络失败时优雅降级
         return None
 
-    COVER_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    (COVER_CACHE_DIR / filename).write_bytes(data)
+    try:
+        COVER_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        (COVER_CACHE_DIR / filename).write_bytes(data)
+    except OSError:
+        # 表格与联想可能并发下载同一封面，Windows 下并发写同一文件会报错；
+        # 缓存写失败只影响下次离线命中，不影响本次返回
+        pass
     return data

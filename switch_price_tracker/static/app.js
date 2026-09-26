@@ -28,6 +28,7 @@ let sortDir = "desc";
 let deleteTargetId = null;
 let suggestTimer = null;
 let suggestData = [];
+let suggestSeq = 0;      // 联想请求序号：丢弃过期的慢响应，防止旧结果覆盖新输入
 let selectedGame = null; // 新增/编辑弹窗中关联的内置游戏条目
 let introDraft = "";     // 待提交的游戏介绍
 let detailRecord = null; // 详情弹窗当前记录
@@ -355,6 +356,7 @@ function closeModal() {
 
 async function submitForm(e) {
     e.preventDefault();
+    if (submitBtn.disabled) return; // 防止连击造成重复记录
 
     const id = editIdInput.value;
     const category = formCategory.value;
@@ -382,30 +384,36 @@ async function submitForm(e) {
         intro: introDraft,
     };
 
-    let result;
-    if (id) {
-        result = await api(`/api/cartridges/${id}`, {
-            method: "PUT",
-            body: JSON.stringify(body),
-        });
-    } else {
-        result = await api("/api/cartridges", {
-            method: "POST",
-            body: JSON.stringify(body),
-        });
-    }
+    submitBtn.disabled = true;
+    try {
+        let result;
+        if (id) {
+            result = await api(`/api/cartridges/${id}`, {
+                method: "PUT",
+                body: JSON.stringify(body),
+            });
+        } else {
+            result = await api("/api/cartridges", {
+                method: "POST",
+                body: JSON.stringify(body),
+            });
+        }
 
-    if (result.success) {
-        showToast(id ? "更新成功！" : "添加成功！");
-        closeModal();
-        loadData();
-    } else {
-        showToast(result.message || "操作失败", "error");
+        if (result.success) {
+            showToast(id ? "更新成功！" : "添加成功！");
+            closeModal();
+            loadData();
+        } else {
+            showToast(result.message || "操作失败", "error");
+        }
+    } finally {
+        submitBtn.disabled = false;
     }
 }
 
 // ── Suggest / Autocomplete ─────────────────────────────────────────────────
 function hideSuggest() {
+    suggestSeq++; // 使在途的联想响应失效
     suggestDropdown.classList.remove("active");
     suggestDropdown.innerHTML = "";
     suggestData = [];
@@ -424,10 +432,13 @@ async function onNameInput() {
         return;
     }
 
+    const seq = suggestSeq + 1;
+    suggestSeq = seq;
     const [recordsResult, gameMatches] = await Promise.all([
         api(`/api/cartridges/suggest?q=${encodeURIComponent(q)}`),
         Promise.resolve(searchGames(q)),
     ]);
+    if (seq !== suggestSeq) return; // 输入已变化或下拉已关闭，丢弃过期响应
 
     suggestData = recordsResult.success ? recordsResult.data : [];
     renderSuggest(gameMatches);

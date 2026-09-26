@@ -54,6 +54,24 @@ def test_add_validation(client):
     resp = client.post("/api/cartridges", json={"category": "NS", "name": "x", "price": -1})
     assert resp.status_code == 400
 
+
+def test_price_rejects_non_finite_and_bool(client):
+    """NaN/Infinity/布尔值价格一律 400：NaN 写入 SQLite 会变成 NULL，触发未处理的 500。"""
+    for bad in (float("nan"), float("inf"), float("-inf"), True):
+        resp = client.post(
+            "/api/cartridges", json={"category": "NS", "name": "x", "price": bad}
+        )
+        assert resp.status_code == 400, f"price={bad!r} 应返回 400"
+        assert "价格" in resp.get_json()["message"]
+
+    record = client.post(
+        "/api/cartridges", json={"category": "NS", "name": "x", "price": 1}
+    ).get_json()["data"]
+    resp = client.put(
+        f"/api/cartridges/{record['id']}", json={"price": float("nan")}
+    )
+    assert resp.status_code == 400
+
     resp = client.post(
         "/api/cartridges", json={"category": "NS", "name": "x", "source": "超" * 51}
     )
