@@ -53,4 +53,8 @@ ALIASES: dict[str, list[str]] = {
     "70010000111120": ["数码宝贝"],  # Digimon Story Time Stranger（另一版本）
     "70010000119860": ["耀西"],  # Yoshi and the Mysterious Book
     "70010000123168": ["星际火狐"],  # Star Fox
+    # ── 2026 新作（目录无中文名，按用户叫法补别名）────────────────────────
+    "70070000032341": ["识质存在"],  # PRAGMATA
+    "70010000100996": ["创世之书起源", "创世之书", "卡尔朵圣谱"],  # Culdcept BEGINS
+    "70050000068866": ["创世之书起源", "创世之书", "卡尔朵圣谱"],  # Culdcept BEGINS – NS2 Edition
 }
