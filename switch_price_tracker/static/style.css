@@ -446,6 +446,14 @@ td .btn {
     text-overflow: ellipsis;
 }
 
+/* 游戏联想项里的英文原名副标题（显示中文名时展示） */
+.suggest-item .suggest-en {
+    margin-left: 6px;
+    color: var(--text-muted);
+    font-weight: 400;
+    font-size: 12px;
+}
+
 .suggest-item .suggest-existing {
     color: var(--text-muted);
     white-space: nowrap;

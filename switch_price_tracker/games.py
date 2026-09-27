@@ -13,6 +13,8 @@ from .config import ASSETS_DIR, BUNDLED_COVERS_DIR, COVER_CACHE_DIR
 
 _UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) switch-price-tracker"
 _TAG_RE = re.compile(r"<[^>]+>")
+# 中文名（繁/简/别名）判定：反向包含匹配只对含中文的短名启用
+CJK_RE = re.compile(r"[\u4e00-\u9fff]")
 
 _catalog: list | None = None
 _index: dict | None = None
@@ -39,13 +41,56 @@ def get(game_id: str):
 
 
 def search(keyword: str, limit: int = 8) -> list:
-    """按名称模糊搜索内置目录，目录本身已按热度排序。"""
-    q = (keyword or "").strip().lower()
+    """按名称模糊搜索内置目录（英文名 / 繁体中文名 / 简体名 / 人工别名）。
+
+    目录本身已按热度排序；前缀匹配优先，其余按命中顺序。
+    """
+    q = _normalize(keyword)
     if not q:
         return []
     _load()
-    matched = [g for g in _catalog if q in g["t"].lower()]
-    return matched[:limit]
+    matched = []
+    for g in _catalog:
+        rank = _match_rank(q, g)
+        if rank is not None:
+            matched.append((rank, g))
+    matched.sort(key=lambda pair: pair[0])
+    return [g for _, g in matched[:limit]]
+
+
+def _normalize(text: str) -> str:
+    """归一化：小写 + 去空白（中文搜索与英文共用一套逻辑）。"""
+    return re.sub(r"\s+", "", (text or "").lower())
+
+
+def _searchable_fields(game: dict) -> list[str]:
+    """参与搜索的字段：英文标题、繁/简中文名（若有）、人工别名（若有）。"""
+    fields = [game["t"]]
+    for key in ("zh", "zhs"):
+        value = game.get(key)
+        if value:
+            fields.append(value)
+    fields.extend(game.get("zs") or [])
+    return fields
+
+
+def _match_rank(q: str, game: dict) -> int | None:
+    """返回命中优先级：0=前缀命中，1=包含命中，None=未命中。
+
+    中文短名（别名/简称）还允许反向包含——输入「耀西与不可思议图鉴」
+    能命中别名为「耀西」的游戏；英文标题不参与反向匹配，避免误伤。
+    """
+    best: int | None = None
+    for field in _searchable_fields(game):
+        f = _normalize(field)
+        if not f:
+            continue
+        if q in f:
+            rank = 0 if f.startswith(q) else 1
+            best = rank if best is None else min(best, rank)
+        elif f in q and len(f) >= 2 and CJK_RE.search(f):
+            best = 1 if best is None else min(best, 1)
+    return best
 
 
 def clean_game_desc(text: str) -> str:

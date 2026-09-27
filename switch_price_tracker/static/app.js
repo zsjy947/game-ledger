@@ -103,22 +103,52 @@ function readFormSource() {
 }
 
 // ── 游戏库关联 ─────────────────────────────────────────────────────────────
+const CJK_RE = /[\u4e00-\u9fff]/;
+const normText = (s) => (s || "").toLowerCase().replace(/\s+/g, "");
+
+/** 中文名：简体化名优先，其次港服繁体名，最后英文名。 */
+function gameDisplayName(g) {
+    return g.zhs || g.zh || g.t;
+}
+
+// 启动时预归一化搜索字段（约 2 万款 × 若干字段，避免每次键入重复正则）
+const GAMES_SEARCH = GAMES.map((g) => {
+    const fields = [g.t];
+    if (g.zh) fields.push(g.zh);
+    if (g.zhs) fields.push(g.zhs);
+    if (g.zs) fields.push(...g.zs);
+    return { g, fields: fields.map(normText) };
+});
+
+/**
+ * 搜索内置游戏库：英文名 / 繁体中文名 / 简体化名 / 人工别名。
+ * 前缀命中优先于包含命中；含中文的短名（如别名「耀西」）允许反向包含，
+ * 输入「耀西与不可思议图鉴」也能命中；同分按标题长度升序（正统作品优先）。
+ */
 function searchGames(keyword, limit = 6) {
-    const q = (keyword || "").trim().toLowerCase();
+    const q = normText(keyword);
     if (!q) return [];
-    const matched = [];
-    for (const g of GAMES) {
-        const t = g.t.toLowerCase();
-        if (t.includes(q)) matched.push(g);
+    const ranked = [];
+    for (const { g, fields } of GAMES_SEARCH) {
+        let rank = null;
+        for (const f of fields) {
+            if (!f) continue;
+            if (f.includes(q)) {
+                rank = Math.min(rank ?? 2, f.startsWith(q) ? 0 : 1);
+            } else if (f.length >= 2 && CJK_RE.test(f) && q.includes(f)) {
+                rank = Math.min(rank ?? 2, 1);
+            }
+        }
+        if (rank !== null) ranked.push([rank, g]);
     }
-    // 前缀匹配优先，其次更短标题（正统作品通常比合集/长尾条目短）
-    matched.sort((a, b) => {
-        const ap = a.t.toLowerCase().startsWith(q) ? 0 : 1;
-        const bp = b.t.toLowerCase().startsWith(q) ? 0 : 1;
-        if (ap !== bp) return ap - bp;
-        return a.t.length - b.t.length;
-    });
-    return matched.slice(0, limit);
+    ranked.sort((a, b) => a[0] - b[0] || a[1].t.length - b[1].t.length);
+    return ranked.slice(0, limit).map(([, g]) => g);
+}
+
+/** 游戏条目的英文名（与显示名不同时用于副标题）。 */
+function gameSubtitle(g) {
+    const display = gameDisplayName(g);
+    return display === g.t ? "" : g.t;
 }
 
 function renderGameChip() {
@@ -127,9 +157,9 @@ function renderGameChip() {
         return;
     }
     gameChip.style.display = "flex";
-    gameChipTitle.textContent = selectedGame.t;
-    const meta = [selectedGame.p, selectedGame.dt].filter(Boolean).join(" · ");
-    gameChipMeta.textContent = meta || "已关联内置游戏库";
+    gameChipTitle.textContent = gameDisplayName(selectedGame);
+    const meta = [gameSubtitle(selectedGame), selectedGame.p, selectedGame.dt].filter(Boolean);
+    gameChipMeta.textContent = meta.join(" · ") || "已关联内置游戏库";
     gameChipCover.src = coverUrl(selectedGame.i);
     gameChipCover.style.display = "";
     gameChipCover.onerror = () => {
@@ -140,7 +170,7 @@ function renderGameChip() {
 function pickGame(game) {
     selectedGame = game;
     introDraft = game.d || "";
-    if (!formName.value.trim()) formName.value = game.t;
+    if (!formName.value.trim()) formName.value = gameDisplayName(game);
     renderGameChip();
     hideSuggest();
 }
@@ -486,13 +516,19 @@ function renderSuggest(gameMatches = []) {
         html += '<div class="suggest-section">内置游戏库 · 点击关联封面与介绍</div>';
         html += gameMatches
             .map(
-                (g) => `
+                (g) => {
+                    const subtitle = gameSubtitle(g);
+                    const subHtml = subtitle
+                        ? `<span class="suggest-en">${esc(subtitle)}</span>`
+                        : "";
+                    return `
                 <div class="suggest-item game-item" data-game="${esc(g.i)}">
                     <span class="suggest-game-cover"><img loading="lazy" src="${coverUrl(g.i)}" onerror="this.remove()"></span>
-                    <span class="suggest-name">${esc(g.t)}</span>
+                    <span class="suggest-name">${esc(gameDisplayName(g))}${subHtml}</span>
                     <span class="suggest-existing">${esc(g.p || "")}</span>
                     <span class="suggest-hint">→ 关联</span>
-                </div>`
+                </div>`;
+                }
             )
             .join("");
     }
