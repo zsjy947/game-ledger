@@ -104,7 +104,13 @@ function readFormSource() {
 
 // ── 游戏库关联 ─────────────────────────────────────────────────────────────
 const CJK_RE = /[\u4e00-\u9fff]/;
-const normText = (s) => (s || "").toLowerCase().replace(/\s+/g, "");
+// 先删 ™®©（NFKC 会把 ™ 展开成 tm），再折叠全角（皮克敏４→皮克敏4）、小写、去空白
+const normText = (s) =>
+    (s || "")
+        .replace(/[™®©]/g, "")
+        .normalize("NFKC")
+        .toLowerCase()
+        .replace(/\s+/g, "");
 
 /** 中文名：简体化名优先，其次港服繁体名，最后英文名。 */
 function gameDisplayName(g) {

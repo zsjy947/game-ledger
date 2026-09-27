@@ -7,6 +7,7 @@
 import html
 import json
 import re
+import unicodedata
 import urllib.request
 
 from .config import ASSETS_DIR, BUNDLED_COVERS_DIR, COVER_CACHE_DIR
@@ -15,6 +16,8 @@ _UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) switch-price-tracker"
 _TAG_RE = re.compile(r"<[^>]+>")
 # 中文名（繁/简/别名）判定：反向包含匹配只对含中文的短名启用
 CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+# ™®© 在 NFKC 前删除：NFKC 会把 ™ 展开成 "tm"，破坏 Switch 2 Edition 等判断
+_TM_RE = re.compile(r"[™®©]")
 
 _catalog: list | None = None
 _index: dict | None = None
@@ -59,8 +62,9 @@ def search(keyword: str, limit: int = 8) -> list:
 
 
 def _normalize(text: str) -> str:
-    """归一化：小写 + 去空白（中文搜索与英文共用一套逻辑）。"""
-    return re.sub(r"\s+", "", (text or "").lower())
+    """归一化：小写 + NFKC（全角４→4）+ 去空白，中文与英文共用。"""
+    text = _TM_RE.sub("", text or "")
+    return re.sub(r"\s+", "", unicodedata.normalize("NFKC", text).lower())
 
 
 def _searchable_fields(game: dict) -> list[str]:

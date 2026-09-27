@@ -232,6 +232,9 @@ def enrich_with_chinese(records: list[dict], hk_path: Path) -> None:
     aliases = zh_aliases()
     zh_n = zhs_n = alias_n = 0
     for rec in records:
+        # 先清掉旧字段再重建，保证重复运行（或别名表增删后）结果幂等
+        for key in ("zh", "zhs", "zs"):
+            rec.pop(key, None)
         tid = rec.get("tid", "")
         candidates = by_tid.get(tid, [])
         hk = _pick_hk_entry(candidates, rec["t"]) if candidates else None

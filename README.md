@@ -1,7 +1,8 @@
 # Switch 卡带价格统计
 
 本地使用的 Switch 卡带（NS / NS2）价格记录小工具：Flask + SQLite + 桌面窗口，
-**内置 1.9 万余款 Switch 游戏目录**（官方英文介绍 + 盒装封面），填表时可直接搜索关联；
+**内置 1.9 万余款 Switch 游戏目录**（官方英文介绍 + 盒装封面 + 港服中文名），
+填表时**输入中文名或常用别名即可搜索关联**（如「塞尔达王国之泪」「喷射战士」「街霸6」）；
 支持搜索、分类/来源筛选、排序、新增时自动联想已有卡带并提示价格涨跌、按来源统计。
 
 ## 快速开始（双击即用）
@@ -61,23 +62,39 @@ switch-price-tracker/
 - **统计卡片**：总记录 / NS / NS2 / 总花费一览，下方为来源分布；
 - **来源追踪**：每条记录可标注来源（拼多多福袋 / 拼多多V3 / 支付宝刷券 / 其他可自由填写），
   支持按来源筛选，表格中彩色标签展示；
-- **内置游戏库**：19,400+ 款 Switch 游戏（名称、官方英文介绍、方形盒装封面、发行商、
-  发售日期、分类），数据来自 Nintendo eShop 欧洲区官方接口，随应用离线内置。
-  新增/编辑时输入名称即可联想游戏库，点击「关联」自动挂上高清封面与介绍；
+- **内置游戏库**：19,500+ 款 Switch 游戏（名称、官方英文介绍、方形盒装封面、发行商、
+  发售日期、分类、港服中文名），数据来自 Nintendo eShop 欧洲区官方接口，随应用离线内置。
+  新增/编辑时输入名称即可联想游戏库——**中文名、简体化名、常用别名（喷射战士、
+  街霸、怪物猎人……）均可命中**，点击「关联」自动挂上高清封面与介绍；
   表格显示封面缩略图，点击名称弹出详情页（大图封面 + 完整介绍）；
-  未内置的热门封面之外按需下载并缓存到 `data/covers/`，联网一次即离线可用；
+  未内置的热门封面之外按需下载并缓存到 `data/covers/`，联网一次即离线可用。
 - **新增联想**：输入名称自动联想已有卡带并对比价格涨跌，可选择直接更新该条记录；
 - **排序 / 搜索**：分类、名称、价格、来源、更新时间均可点击表头排序。
 
 ### 游戏库数据更新（可选）
 
 ```bash
-.venv\Scripts\python.exe scripts\fetch_games.py          # 全量目录 + 前 520 个热门封面
+.venv\Scripts\python.exe scripts\fetch_games.py          # 全量目录 + 中文接入 + 前 400 个热门封面
 .venv\Scripts\python.exe scripts\fetch_games.py --covers 800   # 自定义本地化封面数量
+.venv\Scripts\python.exe scripts\fetch_games.py --skip-covers  # 只更新目录（含中文接入）
+.venv\Scripts\python.exe scripts\fetch_games.py --skip-zh      # 跳过中文接入
 ```
 
 脚本会从 Nintendo eShop（欧洲区）重新抓取并重建 `switch_price_tracker/assets/games.json`、
-`static/games.js` 与 `assets/covers/`，按发售日期倒序，封面本地化前 N 个热门游戏。
+`static/games.js`，按发售日期倒序，封面本地化前 N 个热门游戏。
+
+**中文数据接入**（默认开启，`--skip-zh` 跳过）：欧服目录的 Title ID（跨区通用）映射
+[blawar/titledb](https://github.com/blawar/titledb) 的 `HK.zh.json`（港服目录镜像，MIT），
+为每条记录补充繁体中文名 `zh` 与简体化名 `zhs`（OpenCC 转换 + 塞尔达/马力欧等译名修正）；
+常用别名（喷射战士/街霸/怪物猎人等大陆叫法）人工维护在 `scripts/zh_aliases.py`。
+首次运行会下载约 50 MB 镜像缓存到 `scripts/.cache/`；港服镜像通常滞后新发售游戏数天。
+
+**存量记录反查**：为手输中文名的旧记录自动匹配游戏库（补封面与介绍），先备份再写库：
+
+```bash
+.venv\Scripts\python.exe scripts\link_existing.py          # 预览匹配结果
+.venv\Scripts\python.exe scripts\link_existing.py --apply  # 确认无误后写库
+```
 
 ## 数据库说明
 
