@@ -169,7 +169,7 @@ def test_games_module(tmp_path, monkeypatch):
             def __exit__(self, *a):
                 pass
 
-            def read(self):
+            def read(self, n=-1):
                 return b"\xff\xd8 downloaded"
 
         return R()

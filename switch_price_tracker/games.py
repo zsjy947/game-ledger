@@ -18,6 +18,8 @@ _TAG_RE = re.compile(r"<[^>]+>")
 CJK_RE = re.compile(r"[\u4e00-\u9fff]")
 # ™®© 在 NFKC 前删除：NFKC 会把 ™ 展开成 "tm"，破坏 Switch 2 Edition 等判断
 _TM_RE = re.compile(r"[™®©]")
+# 封面下载大小上限：正常封面不超过几百 KB，超出视为异常响应
+_MAX_COVER_BYTES = 8 * 1024 * 1024
 
 _catalog: list | None = None
 _index: dict | None = None
@@ -118,7 +120,9 @@ def resolve_cover(game_id: str) -> bytes | None:
     try:
         req = urllib.request.Request(game["c"], headers={"User-Agent": _UA, "Accept": "image/*"})
         with urllib.request.urlopen(req, timeout=20) as resp:
-            data = resp.read()
+            data = resp.read(_MAX_COVER_BYTES + 1)
+        if len(data) > _MAX_COVER_BYTES:
+            return None
     except Exception:  # noqa: BLE001 - 离线/网络失败时优雅降级
         return None
 

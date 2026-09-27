@@ -42,7 +42,8 @@ switch-price-tracker/
 ├── switch_price_tracker/     # 应用包
 │   ├── __init__.py           # create_app 应用工厂 + 全局错误处理
 │   ├── config.py             # 集中配置（路径/主机/端口，支持环境变量覆盖）
-│   ├── routes.py             # 路由层（页面 + REST API + 封面解析）
+│   ├── routes.py             # 路由层（只做 HTTP：解析请求/构造响应）
+│   ├── records.py            # 领域逻辑（字段校验 + CSV 导入/导出解析）
 │   ├── database.py           # 数据访问层（全部 SQL 集中于此）
 │   ├── games.py              # 内置游戏库（目录加载/搜索/封面解析）
 │   ├── serve.py              # 浏览器模式启动逻辑（端口检测、自动开浏览器）

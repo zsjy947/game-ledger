@@ -141,6 +141,11 @@ def _to_dict(row) -> dict | None:
 
 # ── 查询 ────────────────────────────────────────────────────────────────────
 
+def _escape_like(term: str) -> str:
+    """转义 LIKE 通配符：用户输入的 % _ \ 按字面匹配，不当通配符。"""
+    return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def get_all(
     search: str | None = None, category: str | None = None, source: str | None = None
 ) -> list[dict]:
@@ -148,8 +153,8 @@ def get_all(
     query = "SELECT * FROM cartridges WHERE 1=1"
     params: list = []
     if search:
-        query += " AND name LIKE ?"
-        params.append(f"%{search}%")
+        query += " AND name LIKE ? ESCAPE '\\'"
+        params.append(f"%{_escape_like(search)}%")
     if category:
         query += " AND category = ?"
         params.append(category)
@@ -179,8 +184,8 @@ def search_suggest(name: str) -> list[dict]:
             "SELECT * FROM cartridges WHERE name = ?", (name,)
         ).fetchall()
         exclude_ids = [row["id"] for row in exact]
-        fuzzy_sql = "SELECT * FROM cartridges WHERE name LIKE ?"
-        params: list = [f"%{name}%"]
+        fuzzy_sql = "SELECT * FROM cartridges WHERE name LIKE ? ESCAPE '\\'"
+        params: list = [f"%{_escape_like(name)}%"]
         if exclude_ids:
             fuzzy_sql += f" AND id NOT IN ({','.join('?' * len(exclude_ids))})"
             params += exclude_ids
@@ -192,13 +197,22 @@ def search_suggest(name: str) -> list[dict]:
 
 # ── 写入 ────────────────────────────────────────────────────────────────────
 
-def _record_price(conn, cartridge_id: int, price: float) -> None:
-    """写入一条价格历史（仅记录非零价格；零价视为「未填」，不进历史）。"""
+def _record_price(conn, cartridge_id: int, price: float, changed_at: str | None = None) -> None:
+    """写入一条价格历史（仅记录非零价格；零价视为「未填」，不进历史）。
+
+    changed_at 用于 CSV 导入保真（沿用记录的原始时间），默认当前时间。
+    """
     if price > 0:
-        conn.execute(
-            "INSERT INTO price_history (cartridge_id, price) VALUES (?, ?)",
-            (cartridge_id, price),
-        )
+        if changed_at:
+            conn.execute(
+                "INSERT INTO price_history (cartridge_id, price, changed_at) VALUES (?, ?, ?)",
+                (cartridge_id, price, changed_at),
+            )
+        else:
+            conn.execute(
+                "INSERT INTO price_history (cartridge_id, price) VALUES (?, ?)",
+                (cartridge_id, price),
+            )
 
 
 def add(
@@ -209,15 +223,28 @@ def add(
     source: str = "",
     cover: str = "",
     intro: str = "",
+    *,
+    created_at: str | None = None,
+    updated_at: str | None = None,
 ) -> dict:
-    """新增一条卡带记录，返回完整的新记录。"""
+    """新增一条卡带记录，返回完整的新记录。
+
+    created_at/updated_at：可选的显式时间戳（CSV 导入保真，需已通过
+    records.parse_payload 的格式校验），缺省由数据库取当前时间。
+    """
+    columns = ["category", "name", "price", "notes", "source", "cover", "intro"]
+    values: list = [category, name, price, notes, source, cover, intro]
+    for key, value in (("created_at", created_at), ("updated_at", updated_at)):
+        if value:
+            columns.append(key)
+            values.append(value)
     with connect() as conn:
         cursor = conn.execute(
-            "INSERT INTO cartridges (category, name, price, notes, source, cover, intro)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (category, name, price, notes, source, cover, intro),
+            f"INSERT INTO cartridges ({', '.join(columns)})"
+            f" VALUES ({', '.join('?' * len(columns))})",
+            values,
         )
-        _record_price(conn, cursor.lastrowid, price)
+        _record_price(conn, cursor.lastrowid, price, changed_at=updated_at or created_at)
         row = conn.execute(
             "SELECT * FROM cartridges WHERE id = ?", (cursor.lastrowid,)
         ).fetchone()

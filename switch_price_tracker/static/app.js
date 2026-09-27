@@ -189,11 +189,17 @@ function clearGame() {
 
 // ── API helpers ────────────────────────────────────────────────────────────
 async function api(path, options = {}) {
-    const res = await fetch(path, {
-        headers: { "Content-Type": "application/json" },
-        ...options,
-    });
-    return res.json();
+    // 非 JSON 响应（如 500 的 HTML 错误页）或网络失败统一降级，
+    // 调用方按 result.success 分支即可
+    try {
+        const res = await fetch(path, {
+            headers: { "Content-Type": "application/json" },
+            ...options,
+        });
+        return await res.json();
+    } catch {
+        return { success: false, message: "网络错误，请重试" };
+    }
 }
 
 // ── Toast ──────────────────────────────────────────────────────────────────
