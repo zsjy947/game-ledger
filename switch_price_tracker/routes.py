@@ -103,10 +103,21 @@ def list_cartridges():
 
 @bp.get("/api/cartridges/suggest")
 def suggest_cartridges():
-    """按名称片段联想已有卡带（新增时自动提示是否改为更新）。"""
+    """按名称片段联想已有卡带（新增时自动提示是否改为更新），附带历史最低价。"""
     q = request.args.get("q", "").strip()
     records = database.search_suggest(q) if q else []
+    min_prices = database.get_min_prices([r["id"] for r in records])
+    for record in records:
+        record["min_price"] = min_prices.get(record["id"])
     return jsonify({"success": True, "data": records})
+
+
+@bp.get("/api/cartridges/<int:cartridge_id>/history")
+def cartridge_price_history(cartridge_id: int):
+    """某条卡带的价格变化历史（时间正序），记录不存在返回 404。"""
+    if database.get_by_id(cartridge_id) is None:
+        return jsonify({"success": False, "message": "记录不存在"}), 404
+    return jsonify({"success": True, "data": database.get_price_history(cartridge_id)})
 
 
 @bp.get("/api/cartridges/<int:cartridge_id>")

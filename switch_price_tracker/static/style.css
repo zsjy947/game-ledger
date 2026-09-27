@@ -925,6 +925,38 @@ td .btn {
     text-align: right;
 }
 
+/* 价格走势（详情弹窗） */
+.detail-chart {
+    margin: 4px 0 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface, transparent);
+}
+
+.detail-chart-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.detail-chart-meta {
+    color: var(--text-muted);
+    font-weight: 400;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.chart-svg {
+    display: block;
+    width: 100%;
+    height: 56px;
+}
+
 .detail-intro {
     border-top: 1px solid var(--border);
     padding-top: 10px;

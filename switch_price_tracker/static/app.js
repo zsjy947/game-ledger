@@ -506,12 +506,23 @@ function renderSuggest(gameMatches = []) {
                         compareHtml = `<span class="suggest-compare price-same">价格持平</span>`;
                     }
                 }
+                // 历史最低价：输入价不高于历史最低时提示划算
+                const minPrice = item.min_price;
+                let minHtml = "";
+                if (minPrice != null && inputPrice !== null && !isNaN(inputPrice)) {
+                    if (inputPrice <= minPrice + 0.01) {
+                        minHtml = `<span class="suggest-compare price-down">低于历史最低 ¥${formatPrice(minPrice)}</span>`;
+                    } else if (minPrice < existingPrice - 0.01) {
+                        minHtml = `<span class="suggest-compare price-same">历史最低 ¥${formatPrice(minPrice)}</span>`;
+                    }
+                }
                 return `
                 <div class="suggest-item" data-id="${item.id}">
                     <span class="suggest-name">${esc(item.name)}</span>
                     <span class="category-tag ${item.category.toLowerCase()}">${esc(item.category)}</span>
                     <span class="suggest-existing">已有 ¥${formatPrice(item.price)}</span>
                     ${compareHtml}
+                    ${minHtml}
                     <span class="suggest-hint">→ 更新此记录</span>
                 </div>`;
             })
@@ -576,6 +587,53 @@ function fillFromSuggest(id) {
 }
 
 // ── Detail modal ───────────────────────────────────────────────────────────
+let detailChartSeq = 0; // 详情切换序号：丢弃过期走势响应
+
+async function loadPriceHistory(record) {
+    const box = $("#detailChart");
+    const seq = ++detailChartSeq;
+    box.style.display = "none";
+    if (!record) return;
+
+    const result = await api(`/api/cartridges/${record.id}/history`);
+    const points = result.success ? result.data : [];
+    if (seq !== detailChartSeq || !points.length) return; // 详情已切换或无历史
+
+    const prices = points.map((p) => p.price);
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+
+    // SVG 走势：横向铺满容器，上下留边距；单点只画标记
+    const W = 300;
+    const H = 64;
+    const PAD = 6;
+    let poly = "";
+    if (points.length > 1) {
+        const stepX = (W - PAD * 2) / (points.length - 1);
+        poly = points
+            .map((p, i) => {
+                const y =
+                    max === min
+                        ? H / 2
+                        : PAD + ((max - p.price) / (max - min)) * (H - PAD * 2);
+                return `${(PAD + i * stepX).toFixed(1)},${y.toFixed(1)}`;
+            })
+            .join(" ");
+    }
+
+    box.innerHTML = `
+        <div class="detail-chart-title">价格走势<span class="detail-chart-meta">最低 ¥${formatPrice(min)} · 最高 ¥${formatPrice(max)} · 共 ${points.length} 次</span></div>
+        <svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+            ${
+                poly
+                    ? `<polyline points="${poly}" fill="none" stroke="#5a7af5" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+                       <circle cx="${poly.split(" ").at(-1).split(",")[0]}" cy="${poly.split(" ").at(-1).split(",")[1]}" r="3" fill="#5a7af5"/>`
+                    : `<circle cx="${W / 2}" cy="${H / 2}" r="3.5" fill="#5a7af5"/>`
+            }
+        </svg>`;
+    box.style.display = "";
+}
+
 function openDetailModal(id) {
     const record = cartridges.find((c) => c.id === id);
     if (!record) return;
@@ -605,6 +663,8 @@ function openDetailModal(id) {
         .map(([k, v]) => `<div class="detail-row"><span>${k}</span><span>${v}</span></div>`)
         .join("");
 
+    loadPriceHistory(record);
+
     const game = record.cover ? GAMES_INDEX[record.cover] : null;
     const intro = record.intro || (game ? game.d : "");
     const introBox = $("#detailIntro");
@@ -627,6 +687,7 @@ function openDetailModal(id) {
 }
 
 function closeDetailModal() {
+    detailChartSeq++; // 使在途的走势响应失效
     detailRecord = null;
     detailOverlay.classList.remove("active");
 }

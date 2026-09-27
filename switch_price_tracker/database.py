@@ -30,8 +30,30 @@ def _add_cover_intro_columns(conn) -> None:
         conn.execute("ALTER TABLE cartridges ADD COLUMN intro TEXT NOT NULL DEFAULT ''")
 
 
+def _add_price_history_table(conn) -> None:
+    """v3 → v4：新增价格历史表，并为存量记录播种当前价格作为起点。
+
+    ON DELETE CASCADE + connect() 里的 foreign_keys=ON，删卡带时历史自动清理。
+    播种用 updated_at 近似该价格的实际设置时间。
+    """
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS price_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cartridge_id INTEGER NOT NULL REFERENCES cartridges(id) ON DELETE CASCADE,
+            price REAL NOT NULL,
+            changed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_price_history_cartridge
+            ON price_history(cartridge_id);
+        INSERT INTO price_history (cartridge_id, price, changed_at)
+            SELECT id, price, updated_at FROM cartridges WHERE price > 0;
+        """
+    )
+
+
 # 当前 schema 版本
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 _TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS cartridges (
@@ -59,6 +81,9 @@ MIGRATIONS: dict[int, list] = {
     ],
     3: [
         _add_cover_intro_columns,
+    ],
+    4: [
+        _add_price_history_table,
     ],
 }
 
@@ -167,6 +192,15 @@ def search_suggest(name: str) -> list[dict]:
 
 # ── 写入 ────────────────────────────────────────────────────────────────────
 
+def _record_price(conn, cartridge_id: int, price: float) -> None:
+    """写入一条价格历史（仅记录非零价格；零价视为「未填」，不进历史）。"""
+    if price > 0:
+        conn.execute(
+            "INSERT INTO price_history (cartridge_id, price) VALUES (?, ?)",
+            (cartridge_id, price),
+        )
+
+
 def add(
     category: str,
     name: str,
@@ -183,6 +217,7 @@ def add(
             " VALUES (?, ?, ?, ?, ?, ?, ?)",
             (category, name, price, notes, source, cover, intro),
         )
+        _record_price(conn, cursor.lastrowid, price)
         row = conn.execute(
             "SELECT * FROM cartridges WHERE id = ?", (cursor.lastrowid,)
         ).fetchone()
@@ -199,8 +234,16 @@ def update(
     cover: str = "",
     intro: str = "",
 ) -> dict | None:
-    """更新指定记录并返回更新后的数据；记录不存在时返回 None。"""
+    """更新指定记录并返回更新后的数据；记录不存在时返回 None。
+
+    价格发生变化时自动追加一条历史（清空为 0 不记历史）。
+    """
     with connect() as conn:
+        old = conn.execute(
+            "SELECT price FROM cartridges WHERE id = ?", (cartridge_id,)
+        ).fetchone()
+        if old is None:
+            return None
         cursor = conn.execute(
             """UPDATE cartridges
                SET category = ?, name = ?, price = ?, notes = ?, source = ?,
@@ -210,6 +253,8 @@ def update(
         )
         if cursor.rowcount == 0:
             return None
+        if abs(price - old["price"]) > 1e-9:
+            _record_price(conn, cartridge_id, price)
         row = conn.execute(
             "SELECT * FROM cartridges WHERE id = ?", (cartridge_id,)
         ).fetchone()
@@ -217,7 +262,34 @@ def update(
 
 
 def delete(cartridge_id: int) -> bool:
-    """删除指定记录，返回是否确实删除了一条。"""
+    """删除指定记录，返回是否确实删除了一条（价格历史级联清理）。"""
     with connect() as conn:
         cursor = conn.execute("DELETE FROM cartridges WHERE id = ?", (cartridge_id,))
         return cursor.rowcount > 0
+
+
+# ── 价格历史 ────────────────────────────────────────────────────────────────
+
+def get_price_history(cartridge_id: int) -> list[dict]:
+    """按时间正序返回某条卡带的价格变化记录。"""
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT price, changed_at FROM price_history"
+            " WHERE cartridge_id = ? ORDER BY changed_at ASC, id ASC",
+            (cartridge_id,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_min_prices(cartridge_ids: list[int]) -> dict[int, float | None]:
+    """批量取历史最低价（联想接口用）；无历史记录的 id 不在返回里。"""
+    if not cartridge_ids:
+        return {}
+    placeholders = ",".join("?" * len(cartridge_ids))
+    with connect() as conn:
+        rows = conn.execute(
+            f"SELECT cartridge_id, MIN(price) AS min_price FROM price_history"
+            f" WHERE cartridge_id IN ({placeholders}) GROUP BY cartridge_id",
+            cartridge_ids,
+        ).fetchall()
+    return {row["cartridge_id"]: row["min_price"] for row in rows}
