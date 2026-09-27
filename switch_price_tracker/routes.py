@@ -4,7 +4,10 @@
 响应统一为 {"success": bool, "data"?: ..., "message"?: ...} 结构。
 """
 
+import csv
+import io
 import math
+from datetime import date
 
 from flask import Blueprint, Response, jsonify, render_template, request
 
@@ -160,3 +163,90 @@ def delete_cartridge(cartridge_id: int):
     if not database.delete(cartridge_id):
         return jsonify({"success": False, "message": "记录不存在"}), 404
     return jsonify({"success": True, "message": "删除成功"})
+
+
+# ── CSV 导出 / 导入 ─────────────────────────────────────────────────────────
+
+CSV_FIELDS = (
+    "id", "category", "name", "price", "source", "cover", "intro", "notes",
+    "created_at", "updated_at",
+)
+CSV_REQUIRED = ("category", "name")
+
+
+@bp.get("/api/export/csv")
+def export_csv():
+    """导出全部记录为 CSV（UTF-8 带 BOM，Excel 直接打开不乱码）。"""
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(CSV_FIELDS)
+    for record in database.get_all():
+        writer.writerow([record.get(field, "") for field in CSV_FIELDS])
+    filename = f"cartridges-{date.today():%Y%m%d}.csv"
+    # 前置 BOM：无 BOM 的 UTF-8 CSV 在 Excel 里中文会乱码
+    return Response(
+        "\ufeff" + buf.getvalue(),
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}",
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@bp.post("/api/import/csv")
+def import_csv():
+    """从 CSV 批量导入记录；分类+名称重复的行跳过，坏行汇报不中断。"""
+    file = request.files.get("file")
+    if file is None or not file.filename:
+        return jsonify({"success": False, "message": "请选择要导入的 CSV 文件"}), 400
+    try:
+        text = file.stream.read().decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return jsonify({"success": False, "message": "文件需为 UTF-8 编码（Excel 请另存为「CSV UTF-8」）"}), 400
+
+    reader = csv.DictReader(io.StringIO(text))
+    missing = [f for f in CSV_REQUIRED if f not in (reader.fieldnames or [])]
+    if missing:
+        return jsonify({"success": False, "message": f"CSV 缺少必需列：{'、'.join(missing)}"}), 400
+
+    existing = {(r["category"], r["name"]) for r in database.get_all()}
+    imported = skipped = failed = 0
+    errors: list[str] = []
+    for line_no, row in enumerate(reader, start=2):
+        if not any((cell or "").strip() for cell in row.values() if isinstance(cell, str)):
+            continue  # 空行
+        fields, error = _parse_payload(
+            {
+                "category": row.get("category"),
+                "name": row.get("name"),
+                "price": row.get("price") or "",
+                "source": row.get("source") or "",
+                "cover": row.get("cover") or "",
+                "intro": row.get("intro") or "",
+                "notes": row.get("notes") or "",
+            }
+        )
+        if error:
+            failed += 1
+            if len(errors) < 10:
+                errors.append(f"第{line_no}行：{error}")
+            continue
+        category, name, price, notes, source, cover, intro = fields
+        if (category, name) in existing:
+            skipped += 1
+            continue
+        database.add(category, name, price, notes, source, cover, intro)
+        existing.add((category, name))
+        imported += 1
+
+    message = f"导入完成：新增 {imported} 条，跳过重复 {skipped} 条"
+    if failed:
+        message += f"，失败 {failed} 条"
+    return jsonify(
+        {
+            "success": True,
+            "data": {"imported": imported, "skipped": skipped, "failed": failed, "errors": errors},
+            "message": message,
+        }
+    )

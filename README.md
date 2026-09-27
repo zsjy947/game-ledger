@@ -60,6 +60,13 @@ switch-price-tracker/
 ## 功能与界面
 
 - **统计卡片**：总记录 / NS / NS2 / 总花费一览，下方为来源分布；
+- **价格历史**：新增/改价自动记录（迁移时为存量记录播种当前价），
+  详情弹窗显示价格走势图与最低/最高/记录次数；
+  新增联想时提示「历史最低 ¥X」，输入价更低时提示「低于历史最低」；
+- **CSV 导出 / 导入**：一键导出全部记录（UTF-8 带 BOM，Excel 直接打开），
+  或从 CSV 批量导入——分类+名称重复的行自动跳过，坏行汇报不中断；
+
+- **统计卡片**：总记录 / NS / NS2 / 总花费一览，下方为来源分布；
 - **来源追踪**：每条记录可标注来源（拼多多福袋 / 拼多多V3 / 支付宝刷券 / 其他可自由填写），
   支持按来源筛选，表格中彩色标签展示；
 - **内置游戏库**：19,500+ 款 Switch 游戏（名称、官方英文介绍、方形盒装封面、发行商、
@@ -102,8 +109,9 @@ switch-price-tracker/
 - 表结构由 `switch_price_tracker/database.py` 统一管理，采用 `PRAGMA user_version`
   轻量迁移：改表时把 `SCHEMA_VERSION` 加 1 并在 `MIGRATIONS` 追加步骤即可，
   首次运行会自动执行迁移，并把旧库备份为 `data/prices.backup-v<旧版本>.db`。
-  （当前版本：v3 —— v2 新增 `source` 来源字段，v3 新增 `cover`/`intro` 游戏库关联字段。）
-- 备份数据：直接复制 `data/prices.db`（应用未运行时）即可。
+  （当前版本：v4 —— v2 新增 `source` 来源字段，v3 新增 `cover`/`intro` 游戏库关联字段，
+  v4 新增 `price_history` 价格历史表并为存量记录播种当前价。）
+- 备份数据：直接复制 `data/prices.db`（应用未运行时），或用界面上「导出 CSV」。
 - 测试使用临时数据库，不会触碰真实数据。
 
 ### 表结构（cartridges）
@@ -136,10 +144,13 @@ switch-price-tracker/
 | GET | `/` | 单页前端 |
 | GET | `/api/cartridges?search=&category=&source=` | 列表（搜索 / 分类 / 来源过滤） |
 | GET | `/api/cartridges/<id>` | 单条详情 |
+| GET | `/api/cartridges/<id>/history` | 价格历史（时间正序） |
 | POST | `/api/cartridges` | 新增 |
-| PUT | `/api/cartridges/<id>` | 更新（未提供的字段保留原值） |
+| PUT | `/api/cartridges/<id>` | 更新（未提供的字段保留原值；改价自动记历史） |
 | DELETE | `/api/cartridges/<id>` | 删除 |
-| GET | `/api/cartridges/suggest?q=` | 名称联想（最多 5 条） |
+| GET | `/api/cartridges/suggest?q=` | 名称联想（最多 5 条，含历史最低价） |
+| GET | `/api/export/csv` | 导出全部记录（UTF-8 带 BOM） |
+| POST | `/api/import/csv` | 从 CSV 导入（multipart `file` 字段） |
 
 响应统一为 `{"success": true|false, "data"?: ..., "message"?: ...}`。
 

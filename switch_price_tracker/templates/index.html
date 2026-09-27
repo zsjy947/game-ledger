@@ -56,7 +56,12 @@
                 <button id="searchBtn" class="btn btn-secondary">搜索</button>
                 <button id="resetBtn" class="btn btn-outline">重置</button>
             </div>
-            <button id="addBtn" class="btn btn-primary">＋ 新增卡带</button>
+            <div class="toolbar-actions">
+                <button id="exportBtn" class="btn btn-outline" title="导出全部记录为 CSV（可用 Excel 打开）">导出 CSV</button>
+                <button id="importBtn" class="btn btn-outline" title="从 CSV 批量导入（分类+名称重复的自动跳过）">导入 CSV</button>
+                <input type="file" id="importFile" accept=".csv,text/csv" hidden>
+                <button id="addBtn" class="btn btn-primary">＋ 新增卡带</button>
+            </div>
         </div>
 
         <!-- 统计卡片 -->

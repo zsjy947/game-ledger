@@ -1,5 +1,7 @@
 """REST API 接口测试。"""
 
+from switch_price_tracker import __version__
+
 
 def test_index_page(client):
     resp = client.get("/")
@@ -9,7 +11,7 @@ def test_index_page(client):
     html = resp.get_data(as_text=True)
     assert "sourcePresets" in html
     assert "\\u62fc\\u591a\\u591a\\u798f\\u888b" in html  # "拼多多福袋" 的 JS 转义形式
-    assert "v1.2.0" in html
+    assert f"v{__version__}" in html
 
 
 def test_add_and_list(client):

@@ -751,6 +751,34 @@ categoryFilter.addEventListener("change", loadData);
 sourceFilter.addEventListener("change", loadData);
 
 $("#addBtn").addEventListener("click", openAddModal);
+
+// ── CSV 导出 / 导入 ────────────────────────────────────────────────────────
+$("#exportBtn").addEventListener("click", () => {
+    window.location.href = "/api/export/csv";
+});
+
+$("#importBtn").addEventListener("click", () => $("#importFile").click());
+
+$("#importFile").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    e.target.value = ""; // 允许连续导入同一个文件
+    if (!file) return;
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+        const res = await fetch("/api/import/csv", { method: "POST", body: fd });
+        const result = await res.json();
+        if (result.success) {
+            const firstError = result.data && result.data.errors && result.data.errors[0];
+            showToast(firstError ? `${result.message}；${firstError}` : result.message, "success");
+            loadData();
+        } else {
+            showToast(result.message || "导入失败", "error");
+        }
+    } catch {
+        showToast("导入失败，请重试", "error");
+    }
+});
 $("#modalClose").addEventListener("click", closeModal);
 $("#cancelBtn").addEventListener("click", closeModal);
 modalOverlay.addEventListener("click", (e) => {
