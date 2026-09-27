@@ -4,6 +4,9 @@ __pycache__/
 .pytest_cache/
 .venv/
 
+# 抓取脚本缓存（港服中文数据镜像等）
+scripts/.cache/
+
 # 打包输出
 build/
 dist/
