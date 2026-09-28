@@ -3,6 +3,6 @@
 本地使用无需关心本文件；日常启动请用「启动.bat」或 python run.py。
 """
 
-from switch_price_tracker import create_app
+from game_ledger import create_app
 
 app = create_app()

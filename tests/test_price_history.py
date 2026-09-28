@@ -2,7 +2,7 @@
 
 import pytest
 
-from switch_price_tracker import database
+from game_ledger import database
 
 
 def test_add_records_initial_price(client):

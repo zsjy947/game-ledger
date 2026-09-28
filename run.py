@@ -5,7 +5,7 @@
 
 import logging
 
-from switch_price_tracker.serve import serve
+from game_ledger.serve import serve
 
 
 def main() -> None:

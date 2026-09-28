@@ -1,12 +1,12 @@
 """从 Nintendo eShop（欧洲区官方搜索接口）抓取 Switch 游戏目录，生成内置游戏库。
 
 产出（均可由 --skip-* 控制）：
-- switch_price_tracker/assets/games.json   游戏目录（唯一数据源：服务端封面解析、
+- game_ledger/assets/games.json   游戏目录（唯一数据源：服务端封面解析、
                                            桌面前端经 /api/games/catalog 加载）
-- switch_price_tracker/static/games.js     同数据的 JS 形式（仅安卓分支契约：
+- game_ledger/static/games.js     同数据的 JS 形式（仅安卓分支契约：
                                            android/prepare_assets.py 复制进 APK；
                                            桌面端已不使用、打包时也不再携带）
-- switch_price_tracker/assets/covers/<id>.jpg  热门游戏封面缩略图（本地化，离线可用）
+- game_ledger/assets/covers/<id>.jpg  热门游戏封面缩略图（本地化，离线可用）
 
 数据来源：
 - 目录：任天堂欧洲官网 eShop 搜索接口（Solr），字段含英文介绍与官方方形盒装封面；
@@ -36,8 +36,8 @@ import urllib.request
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-ASSETS_DIR = PROJECT_ROOT / "switch_price_tracker" / "assets"
-STATIC_DIR = PROJECT_ROOT / "switch_price_tracker" / "static"
+ASSETS_DIR = PROJECT_ROOT / "game_ledger" / "assets"
+STATIC_DIR = PROJECT_ROOT / "game_ledger" / "static"
 COVERS_DIR = ASSETS_DIR / "covers"
 CACHE_DIR = Path(__file__).resolve().parent / ".cache"
 

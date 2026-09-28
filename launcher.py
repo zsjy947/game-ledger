@@ -5,7 +5,7 @@
 
 import sys
 
-from switch_price_tracker.window import _alert, open_window
+from game_ledger.window import _alert, open_window
 
 
 def main() -> None:

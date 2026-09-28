@@ -1,12 +1,12 @@
 """REST API 接口测试。"""
 
-from switch_price_tracker import __version__
+from game_ledger import __version__
 
 
 def test_index_page(client):
     resp = client.get("/")
     assert resp.status_code == 200
-    assert "Switch 卡带价格统计".encode() in resp.data
+    assert "游戏藏品账本".encode() in resp.data
     # 来源预设（tojson 转义注入）与版本号
     html = resp.get_data(as_text=True)
     assert "sourcePresets" in html
@@ -140,7 +140,7 @@ def test_cover_and_intro_roundtrip(client):
 
 def test_cover_route(client, monkeypatch):
     """/cover/<id>：命中返回图片，未命中返回 404。"""
-    from switch_price_tracker import games
+    from game_ledger import games
 
     resp = client.get("/cover/unknown-game")
     assert resp.status_code == 404
@@ -186,7 +186,7 @@ def test_suggest_endpoint(client):
 
 def test_games_catalog_api(client, monkeypatch):
     """游戏目录单源接口：服务端内存直出，桌面端不再依赖静态 games.js。"""
-    from switch_price_tracker import games
+    from game_ledger import games
 
     monkeypatch.setattr(games, "_catalog", [{"i": "1", "t": "Fake Game"}], raising=False)
     resp = client.get("/api/games/catalog")

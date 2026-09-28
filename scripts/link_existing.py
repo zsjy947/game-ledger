@@ -25,7 +25,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from switch_price_tracker import database, games  # noqa: E402
+from game_ledger import database, games  # noqa: E402
 
 # 归一化：小写 + NFKC（全角４→4）+ 去空白与常见中英文标点
 # （塞尔达传说 王国之泪 → 塞尔达传说王国之泪，皮克敏４ → 皮克敏4）

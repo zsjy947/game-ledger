@@ -2,7 +2,7 @@
 
 import sqlite3
 
-from switch_price_tracker import database
+from game_ledger import database
 
 
 def test_add_and_get(client):
@@ -125,7 +125,7 @@ def test_games_module(tmp_path, monkeypatch):
     """内置游戏库：搜索与封面解析（内置资源优先，其次缓存，最后在线）。"""
     import json
 
-    from switch_price_tracker import config, games
+    from game_ledger import config, games
 
     games_dir = tmp_path / "assets"
     games_dir.mkdir()

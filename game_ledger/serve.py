@@ -55,7 +55,7 @@ def serve(debug: bool = False, open_browser: bool = True) -> None:
         )
 
     database.init_db()
-    logger.info("Switch 卡带价格统计已启动 → %s （关闭此窗口即退出服务）", url)
+    logger.info("游戏藏品账本已启动 → %s （关闭此窗口即退出服务）", url)
     if open_browser:
         # 等服务真正监听后再打开浏览器
         threading.Timer(1.0, webbrowser.open, args=(url,)).start()

@@ -7,7 +7,7 @@ __pycache__/
 # 抓取脚本缓存（港服中文数据镜像等）
 scripts/.cache/
 
-# 打包输出（release\SwitchPriceTracker\ 为便携成品；build\ 为 PyInstaller 中间产物）
+# 打包输出（release\GameLedger\ 为便携成品；build\ 为 PyInstaller 中间产物）
 build/
 release/
 .android-build/

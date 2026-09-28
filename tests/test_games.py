@@ -2,7 +2,7 @@
 
 import pytest
 
-from switch_price_tracker import games
+from game_ledger import games
 
 
 @pytest.fixture()

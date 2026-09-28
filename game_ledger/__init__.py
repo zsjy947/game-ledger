@@ -1,4 +1,4 @@
-"""Switch 卡带价格统计 — Flask 应用包。"""
+"""游戏藏品账本 — Flask 应用包。"""
 
 from flask import Flask, jsonify, render_template, request
 from werkzeug.exceptions import HTTPException

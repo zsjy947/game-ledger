@@ -2,7 +2,7 @@
 
 import io
 
-from switch_price_tracker import database
+from game_ledger import database
 
 
 def _post_csv(client, text: str, filename: str = "test.csv"):

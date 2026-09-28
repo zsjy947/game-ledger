@@ -18,7 +18,7 @@ from . import config, database
 
 logger = logging.getLogger(__name__)
 
-_MUTEX_NAME = "SwitchPriceTracker_SingleInstance_Mutex"
+_MUTEX_NAME = "GameLedger_SingleInstance_Mutex"
 
 
 def _ensure_single_instance() -> bool:
@@ -54,7 +54,7 @@ def open_window() -> None:
         raise SystemExit(1)
 
     if not _ensure_single_instance():
-        _alert("Switch 卡带价格统计 已在运行中。", "提示")
+        _alert("游戏藏品账本 已在运行中。", "提示")
         raise SystemExit(0)
 
     database.init_db()
@@ -72,7 +72,7 @@ def open_window() -> None:
     logger.info("本地服务已启动：%s", url)
 
     window = webview.create_window(
-        "Switch 卡带价格统计",
+        "游戏藏品账本",
         url,
         width=1180,
         height=780,

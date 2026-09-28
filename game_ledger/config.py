@@ -26,9 +26,9 @@ def _resource_dir() -> Path:
 # ── 目录 ────────────────────────────────────────────────────────────────────
 BASE_DIR = _base_dir()
 RESOURCE_DIR = _resource_dir()
-TEMPLATE_DIR = RESOURCE_DIR / "switch_price_tracker" / "templates"
-STATIC_DIR = RESOURCE_DIR / "switch_price_tracker" / "static"
-ASSETS_DIR = RESOURCE_DIR / "switch_price_tracker" / "assets"
+TEMPLATE_DIR = RESOURCE_DIR / "game_ledger" / "templates"
+STATIC_DIR = RESOURCE_DIR / "game_ledger" / "static"
+ASSETS_DIR = RESOURCE_DIR / "game_ledger" / "assets"
 BUNDLED_COVERS_DIR = ASSETS_DIR / "covers"
 
 # 数据目录：默认 <根目录>/data，可用环境变量 SWPT_DATA_DIR 覆盖
