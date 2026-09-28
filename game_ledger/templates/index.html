@@ -49,19 +49,27 @@
             </button>
         </header>
 
-        <!-- 搜索 & 操作栏 -->
+        <!-- 搜索 & 操作栏：移动端搜索置顶，筛选折叠（见 style.css ≤720px 断点） -->
         <div class="toolbar">
             <div class="search-group">
                 <input type="text" id="searchInput" placeholder="🔍 搜索卡带名称…" autocomplete="off">
-                <select id="categoryFilter">
+                <button id="searchBtn" class="btn btn-secondary">搜索</button>
+                <button id="filterToggle" class="btn btn-outline" type="button" aria-expanded="false">筛选</button>
+            </div>
+            <div class="filter-panel" id="filterPanel">
+                <select id="categoryFilter" aria-label="分类筛选">
                     <option value="">全部分类</option>
                     <option value="NS">NS</option>
                     <option value="NS2">NS2</option>
                 </select>
-                <select id="sourceFilter">
+                <select id="sourceFilter" aria-label="来源筛选">
                     <option value="">全部来源</option>
                 </select>
-                <button id="searchBtn" class="btn btn-secondary">搜索</button>
+                <select id="mobileSort" aria-label="排序">
+                    <option value="updated_at">最近更新</option>
+                    <option value="name">按名称</option>
+                    <option value="price">按价格</option>
+                </select>
                 <button id="resetBtn" class="btn btn-outline">重置</button>
             </div>
             <div class="toolbar-actions">
@@ -115,7 +123,13 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- 移动端卡片列表（≤720px 显示，替代 8 列表格） -->
+        <div class="card-list" id="cardList"></div>
     </div>
+
+    <!-- 移动端浮动新增按钮（≤720px 显示） -->
+    <button id="fabAdd" class="fab" type="button" aria-label="新增卡带">＋</button>
 
     <!-- 模态框：新增 / 编辑 -->
     <div class="modal-overlay" id="modalOverlay">

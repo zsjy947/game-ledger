@@ -85,10 +85,15 @@ let detailRecord = null; // 详情弹窗当前记录
 // ── DOM refs ───────────────────────────────────────────────────────────────
 const $ = (sel) => document.querySelector(sel);
 const tableBody = $("#tableBody");
+const cardList = $("#cardList");
 const statsBar = $("#statsBar");
 const searchInput = $("#searchInput");
 const categoryFilter = $("#categoryFilter");
 const sourceFilter = $("#sourceFilter");
+const filterToggle = $("#filterToggle");
+const filterPanel = $("#filterPanel");
+const mobileSort = $("#mobileSort");
+const fabAdd = $("#fabAdd");
 const modalOverlay = $("#modalOverlay");
 const modalTitle = $("#modalTitle");
 const cartridgeForm = $("#cartridgeForm");
@@ -348,6 +353,8 @@ function renderTable() {
     if (cartridges.length === 0) {
         tableBody.innerHTML =
             '<tr><td colspan="8" class="empty-state">暂无数据，点击「＋ 新增卡带」开始添加</td></tr>';
+        cardList.innerHTML =
+            '<div class="empty-state card-empty">暂无数据，点右下角 ＋ 开始添加</div>';
         return;
     }
 
@@ -386,14 +393,69 @@ function renderTable() {
         )
         .join("");
 
-    // 绑定事件
-    tableBody.querySelectorAll(".edit-btn").forEach((btn) => {
+    renderCards();
+
+    // 绑定事件（表格与卡片共用选择器）
+    bindRecordEvents(tableBody);
+    bindRecordEvents(cardList);
+}
+
+/** 窄屏卡片列表：封面 + 名称/别名 + 价格/来源/时间 + 操作。 */
+function renderCards() {
+    cardList.innerHTML = cartridges
+        .map(
+            (c) => `
+        <div class="card-item">
+            <div class="card-cover">
+                <div class="cover-thumb${c.cover ? "" : " empty"}">${
+                    c.cover
+                        ? `<img loading="lazy" src="${coverUrl(c.cover)}" onerror="if(!coverImgError(this,'${esc(c.cover)}'))this.remove()">`
+                        : ""
+                }</div>
+            </div>
+            <div class="card-main">
+                <div class="card-title-row">
+                    <span class="name-link" data-id="${c.id}">${esc(c.name)}</span>
+                    <span class="category-tag ${c.category.toLowerCase()}">${esc(c.category)}</span>
+                </div>
+                ${
+                    c.alias
+                        ? `<div class="card-alias" title="别名：${esc(c.alias)}">${esc(c.alias)}</div>`
+                        : ""
+                }
+                ${
+                    c.notes
+                        ? `<div class="card-notes" title="${esc(c.notes)}">${esc(c.notes)}</div>`
+                        : ""
+                }
+                <div class="card-meta-row">
+                    <span class="card-price">¥${formatPrice(c.price)}</span>
+                    ${
+                        c.source
+                            ? `<span class="source-tag ${sourceClass(c.source)}">${esc(c.source)}</span>`
+                            : ""
+                    }
+                </div>
+                <div class="card-date">${formatDate(c.updated_at)}</div>
+            </div>
+            <div class="card-actions">
+                <button class="btn-icon edit-btn" data-id="${c.id}" aria-label="编辑" title="编辑">✎</button>
+                <button class="btn-icon btn-icon-danger delete-btn" data-id="${c.id}" aria-label="删除" title="删除">✕</button>
+            </div>
+        </div>`
+        )
+        .join("");
+}
+
+/** 记录列表事件绑定：编辑/删除/名称点详情（表格与卡片共用）。 */
+function bindRecordEvents(scope) {
+    scope.querySelectorAll(".edit-btn").forEach((btn) => {
         btn.addEventListener("click", () => openEditModal(parseInt(btn.dataset.id)));
     });
-    tableBody.querySelectorAll(".delete-btn").forEach((btn) => {
+    scope.querySelectorAll(".delete-btn").forEach((btn) => {
         btn.addEventListener("click", () => openDeleteConfirm(parseInt(btn.dataset.id)));
     });
-    tableBody.querySelectorAll(".name-link").forEach((el) => {
+    scope.querySelectorAll(".name-link").forEach((el) => {
         el.addEventListener("click", () => openDetailModal(parseInt(el.dataset.id)));
     });
 }
@@ -859,6 +921,10 @@ function handleSort(field) {
             th.classList.add(sortDir === "asc" ? "sorted-asc" : "sorted-desc");
         }
     });
+    // 同步移动端排序下拉（category/source 不在选项里时跳过）
+    if ([...mobileSort.options].some((o) => o.value === sortField)) {
+        mobileSort.value = sortField;
+    }
     sortData();
     renderTable();
 }
@@ -869,6 +935,9 @@ $("#resetBtn").addEventListener("click", () => {
     searchInput.value = "";
     categoryFilter.value = "";
     sourceFilter.value = "";
+    mobileSort.value = "updated_at";
+    sortField = "updated_at";
+    sortDir = "desc";
     loadData();
 });
 searchInput.addEventListener("keydown", (e) => {
@@ -877,7 +946,23 @@ searchInput.addEventListener("keydown", (e) => {
 categoryFilter.addEventListener("change", loadData);
 sourceFilter.addEventListener("change", loadData);
 
+// 筛选面板折叠（窄屏）：默认收起，点「筛选」展开
+filterToggle.addEventListener("click", () => {
+    const open = filterPanel.classList.toggle("open");
+    filterToggle.classList.toggle("active", open);
+    filterToggle.setAttribute("aria-expanded", String(open));
+});
+
+// 移动端排序（卡片列表无表头）：字段切换，名称升序其余降序
+mobileSort.addEventListener("change", () => {
+    sortField = mobileSort.value;
+    sortDir = sortField === "name" ? "asc" : "desc";
+    sortData();
+    renderTable();
+});
+
 $("#addBtn").addEventListener("click", openAddModal);
+fabAdd.addEventListener("click", openAddModal);
 
 // ── CSV 导出 / 导入 ────────────────────────────────────────────────────────
 $("#exportBtn").addEventListener("click", async () => {
