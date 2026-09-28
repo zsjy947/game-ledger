@@ -134,8 +134,27 @@ header {
     width: 42px;
     height: 42px;
     padding: 0;
-    font-size: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     line-height: 1;
+}
+
+/* 深色显示太阳（点击切浅色），浅色显示月亮；SVG 保证在方框内居中 */
+.theme-toggle svg {
+    display: none;
+}
+
+.theme-toggle .icon-sun {
+    display: block;
+}
+
+:root[data-theme="light"] .theme-toggle .icon-sun {
+    display: none;
+}
+
+:root[data-theme="light"] .theme-toggle .icon-moon {
+    display: block;
 }
 
 /* ── Toolbar ─────────────────────────────────────────────────────────────── */
@@ -687,12 +706,18 @@ td .btn {
     box-shadow: var(--shadow);
     font-size: 14px;
     z-index: 2000;
-    transition: transform 0.3s ease;
+    transition: transform 0.3s ease, opacity 0.3s ease, visibility 0.3s ease;
     pointer-events: none;
+    /* 隐藏时彻底不可见：仅靠位移会有一截探出视口底边（绿色描边的圆角就是
+       用户看到的「绿色曲线」），必须配合 visibility/opacity */
+    opacity: 0;
+    visibility: hidden;
 }
 
 .toast.show {
     transform: translateX(-50%) translateY(0);
+    opacity: 1;
+    visibility: visible;
 }
 
 .toast.success {

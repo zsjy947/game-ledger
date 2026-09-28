@@ -896,10 +896,10 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ── 主题切换（深色/浅色）──────────────────────────────────────────────────
-// 首帧主题已在 <head> 内联脚本里确定（无闪烁），这里只负责切换与记忆
+// 首帧主题已在 <head> 内联脚本里确定（无闪烁）；太阳/月亮图标由 CSS
+// 按主题切换（SVG 在方框内精确居中），这里只同步提示文字
 function syncThemeButton() {
     const light = document.documentElement.dataset.theme === "light";
-    themeToggle.textContent = light ? "🌙" : "☀️";
     themeToggle.title = light ? "切换到深色模式" : "切换到浅色模式";
 }
 themeToggle.addEventListener("click", () => {
