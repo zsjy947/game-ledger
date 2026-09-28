@@ -129,7 +129,9 @@ header {
     line-height: 1.3;
 }
 
-.theme-toggle {
+/* 用 .btn.theme-toggle 提高优先级：否则 .btn（声明在后）的 padding 会
+   覆盖回来，把 42px 按钮的内容盒挤到 0.4px，图标就被压没了 */
+.btn.theme-toggle {
     flex: none;
     width: 42px;
     height: 42px;
@@ -140,20 +142,23 @@ header {
     line-height: 1;
 }
 
-/* 深色显示太阳（点击切浅色），浅色显示月亮；SVG 保证在方框内居中 */
-.theme-toggle svg {
+/* 深色显示太阳（点击切浅色），浅色显示月亮；显式尺寸保证在方框内居中 */
+.btn.theme-toggle svg {
     display: none;
+    width: 18px;
+    height: 18px;
+    flex: none;
 }
 
-.theme-toggle .icon-sun {
+.btn.theme-toggle .icon-sun {
     display: block;
 }
 
-:root[data-theme="light"] .theme-toggle .icon-sun {
+:root[data-theme="light"] .btn.theme-toggle .icon-sun {
     display: none;
 }
 
-:root[data-theme="light"] .theme-toggle .icon-moon {
+:root[data-theme="light"] .btn.theme-toggle .icon-moon {
     display: block;
 }
 
