@@ -178,6 +178,15 @@ def extract_zh(hk: dict) -> str:
     return ""
 
 
+def extract_zh_intro(hk: dict) -> str:
+    """取繁体中文介绍：港服长介绍优先，其次一句话简介。"""
+    for key in ("description", "intro"):
+        text = clean_text(hk.get(key) or "", limit=600)
+        if text and CJK_RE.search(text):
+            return text
+    return ""
+
+
 def to_simplified(text: str) -> str:
     """繁转简，并修正港台与大陆官方译名的用词差异。"""
     try:
@@ -233,26 +242,34 @@ def enrich_with_chinese(records: list[dict], hk_path: Path) -> None:
         if tid:
             by_tid.setdefault(tid, []).append(item)
     aliases = zh_aliases()
-    zh_n = zhs_n = alias_n = 0
+    zh_n = zhs_n = zi_n = alias_n = 0
     for rec in records:
         # 先清掉旧字段再重建，保证重复运行（或别名表增删后）结果幂等
-        for key in ("zh", "zhs", "zs"):
+        for key in ("zh", "zhs", "zs", "zi"):
             rec.pop(key, None)
         tid = rec.get("tid", "")
         candidates = by_tid.get(tid, [])
         hk = _pick_hk_entry(candidates, rec["t"]) if candidates else None
-        zh = extract_zh(hk) if hk else ""
-        if zh:
-            rec["zh"] = zh
-            rec["zhs"] = to_simplified(zh)
-            zh_n += 1
-            if rec["zhs"] != zh:
-                zhs_n += 1
+        if hk:
+            zh = extract_zh(hk)
+            if zh:
+                rec["zh"] = zh
+                rec["zhs"] = to_simplified(zh)
+                zh_n += 1
+                if rec["zhs"] != zh:
+                    zhs_n += 1
+            zh_intro = extract_zh_intro(hk)
+            if zh_intro:
+                rec["zi"] = zh_intro
+                zi_n += 1
         extra = aliases.get(rec["i"]) or aliases.get(tid)
         if extra:
             rec["zs"] = list(extra)
             alias_n += 1
-    print(f"  zh names: {zh_n} (simplified differs: {zhs_n}), curated aliases: {alias_n}")
+    print(
+        f"  zh names: {zh_n} (simplified differs: {zhs_n}), "
+        f"zh intros: {zi_n}, curated aliases: {alias_n}"
+    )
 
 
 def save_catalog(records: list[dict]) -> None:

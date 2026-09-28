@@ -52,5 +52,14 @@ echo Build complete! Output folder: release\SwitchPriceTracker\
 echo Double-click SwitchPriceTracker.exe to open the app window.
 echo The whole folder is portable - copy it anywhere and it still runs.
 echo Data is stored in the data subfolder next to the exe.
+
+rem 3. Pack the portable folder into a single zip (handy for GitHub release assets)
+echo Creating portable zip...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Compress-Archive -Path 'release\SwitchPriceTracker' -DestinationPath 'release\SwitchPriceTracker-portable.zip' -Force"
+if errorlevel 1 (
+    echo [WARN] Failed to create the zip. The portable folder above still works.
+) else (
+    echo Zip created: release\SwitchPriceTracker-portable.zip
+)
 pause
 endlocal

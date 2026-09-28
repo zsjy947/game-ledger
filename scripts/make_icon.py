@@ -1,4 +1,4 @@
-"""生成应用图标 scripts/icon.ico（蓝色圆角底 + 白色 ¥ 符号）。
+"""生成应用图标 scripts/icon.ico（任天堂红圆角底 + 白色 ¥ 符号）。
 
 仅开发时需要：python scripts/make_icon.py
 """
@@ -16,10 +16,10 @@ def build() -> None:
     img = Image.new("RGBA", (CANVAS, CANVAS), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    # 圆角底（垂直渐变蓝）
+    # 圆角底（任天堂红，垂直微渐变增强质感）
     radius = 110
-    top = (125, 155, 255)
-    bottom = (86, 118, 243)
+    top = (240, 56, 56)
+    bottom = (198, 0, 12)
     mask = Image.new("L", (CANVAS, CANVAS), 0)
     ImageDraw.Draw(mask).rounded_rectangle([16, 16, CANVAS - 16, CANVAS - 16], radius, fill=255)
     gradient = Image.new("RGBA", (CANVAS, CANVAS))

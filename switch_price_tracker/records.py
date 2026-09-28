@@ -17,13 +17,14 @@ SOURCE_PRESETS = ("拼多多福袋", "拼多多V3", "支付宝刷券")
 MAX_SOURCE_LENGTH = 50
 MAX_INTRO_LENGTH = 6000
 MAX_COVER_LENGTH = 64
+MAX_ALIAS_LENGTH = 100
 
 # SQLite CURRENT_TIMESTAMP 的格式（CSV 往返时校验时间戳列）
 TIMESTAMP_RE = re.compile(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}")
 
 CSV_FIELDS = (
-    "id", "category", "name", "price", "source", "cover", "intro", "notes",
-    "created_at", "updated_at",
+    "id", "category", "name", "alias", "price", "source", "cover", "intro",
+    "notes", "created_at", "updated_at",
 )
 CSV_REQUIRED = ("category", "name")
 
@@ -42,6 +43,7 @@ def parse_payload(body: dict, existing: dict | None = None) -> tuple[dict | None
     source = str(body.get("source") if "source" in body else src.get("source") or "").strip()
     cover = str(body.get("cover") if "cover" in body else src.get("cover") or "").strip()
     intro = str(body.get("intro") if "intro" in body else src.get("intro") or "").strip()
+    alias = str(body.get("alias") if "alias" in body else src.get("alias") or "").strip()
     price = body["price"] if "price" in body else src.get("price")
 
     if category not in VALID_CATEGORIES:
@@ -54,6 +56,8 @@ def parse_payload(body: dict, existing: dict | None = None) -> tuple[dict | None
         return None, "封面引用无效"
     if len(intro) > MAX_INTRO_LENGTH:
         return None, f"介绍不能超过 {MAX_INTRO_LENGTH} 个字符"
+    if len(alias) > MAX_ALIAS_LENGTH:
+        return None, f"别名不能超过 {MAX_ALIAS_LENGTH} 个字符"
 
     if price is None or (isinstance(price, str) and not price.strip()):
         price = 0.0
@@ -78,6 +82,7 @@ def parse_payload(body: dict, existing: dict | None = None) -> tuple[dict | None
         "source": source,
         "cover": cover,
         "intro": intro,
+        "alias": alias,
     }
     for key in ("created_at", "updated_at"):
         value = str(body.get(key) or "").strip()
@@ -123,6 +128,7 @@ def parse_import_csv(text: str) -> tuple[list[dict], str | None]:
                 "cover": row.get("cover") or "",
                 "intro": row.get("intro") or "",
                 "notes": row.get("notes") or "",
+                "alias": row.get("alias") or "",
                 "created_at": row.get("created_at") or "",
                 "updated_at": row.get("updated_at") or "",
             }

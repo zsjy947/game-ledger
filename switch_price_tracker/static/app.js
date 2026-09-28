@@ -63,11 +63,13 @@ const confirmOverlay = $("#confirmOverlay");
 const detailOverlay = $("#detailOverlay");
 const toast = $("#toast");
 const formName = $("#formName");
+const formAlias = $("#formAlias");
 const formPrice = $("#formPrice");
 const formCategory = $("#formCategory");
 const formSource = $("#formSource");
 const formSourceCustom = $("#formSourceCustom");
 const formNotes = $("#formNotes");
+const themeToggle = $("#themeToggle");
 const editIdInput = $("#editId");
 const submitBtn = $("#submitBtn");
 const suggestDropdown = $("#suggestDropdown");
@@ -78,15 +80,28 @@ const gameChipCover = $("#gameChipCover");
 
 // ── 来源选项 ───────────────────────────────────────────────────────────────
 function buildSourceOptions() {
-    for (const filter of [sourceFilter, formSource]) {
-        filter.innerHTML = "";
-    }
-    sourceFilter.appendChild(new Option("全部来源", ""));
+    formSource.innerHTML = "";
     formSource.appendChild(new Option("未指定", ""));
     for (const s of SOURCE_PRESETS) {
         formSource.appendChild(new Option(s, s));
     }
     formSource.appendChild(new Option("其他（填写）", SOURCE_CUSTOM));
+    refreshSourceFilter();
+}
+
+/** 来源筛选下拉 = 预设来源 + 记录里出现过的自定义来源（此前只填了「全部来源」，筛选形同虚设） */
+function refreshSourceFilter() {
+    const current = sourceFilter.value;
+    const sources = new Set(SOURCE_PRESETS);
+    for (const c of cartridges) {
+        if (c.source) sources.add(c.source);
+    }
+    sourceFilter.innerHTML = "";
+    sourceFilter.appendChild(new Option("全部来源", ""));
+    for (const s of sources) {
+        sourceFilter.appendChild(new Option(s, s));
+    }
+    sourceFilter.value = sources.has(current) ? current : "";
 }
 
 function sourceClass(name) {
@@ -182,8 +197,10 @@ function renderGameChip() {
 
 function pickGame(game) {
     selectedGame = game;
-    introDraft = game.d || "";
-    if (!formName.value.trim()) formName.value = gameDisplayName(game);
+    // 繁体中文介绍优先（港服数据），没有再用英文
+    introDraft = game.zi || game.d || "";
+    // 联想选中后自动用全称覆盖输入框（如「塞尔达」→「塞尔达传说 旷野之息」）
+    formName.value = gameDisplayName(game);
     renderGameChip();
     hideSuggest();
 }
@@ -234,6 +251,7 @@ async function loadData() {
         cartridges = result.data;
         sortData();
         renderTable();
+        refreshSourceFilter(); // 记录里的自定义来源进筛选下拉
     }
 }
 
@@ -274,8 +292,14 @@ function renderTable() {
                             : ""
                     }</div>
                 </td>
-                <td><span class="category-tag ${c.category.toLowerCase()}">${esc(c.category)}</span></td>
-                <td><span class="name-link" data-id="${c.id}" title="查看详情">${esc(c.name)}</span></td>
+                <td class="category-cell"><span class="category-tag ${c.category.toLowerCase()}">${esc(c.category)}</span></td>
+                <td>
+                    <span class="name-link" data-id="${c.id}" title="查看详情">${esc(c.name)}</span>${
+                        c.alias
+                            ? `<span class="name-alias" title="别名：${esc(c.alias)}">${esc(c.alias)}</span>`
+                            : ""
+                    }
+                </td>
                 <td class="price-cell">¥${formatPrice(c.price)}</td>
                 <td>${
                     c.source
@@ -368,6 +392,7 @@ function openAddModal() {
     cartridgeForm.reset();
     editIdInput.value = "";
     formSourceCustom.value = "";
+    formAlias.value = "";
     submitBtn.textContent = "保存";
     clearGame();
     syncSourceCustomVisibility();
@@ -384,6 +409,7 @@ function openEditModal(id) {
     editIdInput.value = record.id;
     formCategory.value = record.category;
     formName.value = record.name;
+    formAlias.value = record.alias || "";
     formPrice.value = record.price;
     formSourceCustom.value = "";
     setFormSource(record.source || "");
@@ -410,6 +436,7 @@ async function submitForm(e) {
     const id = editIdInput.value;
     const category = formCategory.value;
     const name = formName.value.trim();
+    const alias = formAlias.value.trim();
     const price = formPrice.value;
     const source = readFormSource();
     const notes = formNotes.value.trim();
@@ -426,6 +453,7 @@ async function submitForm(e) {
     const body = {
         category,
         name,
+        alias,
         price: price === "" ? 0 : parseFloat(price),
         notes,
         source,
@@ -586,6 +614,7 @@ function fillFromSuggest(id) {
     editIdInput.value = record.id;
     formCategory.value = record.category;
     formName.value = record.name;
+    formAlias.value = record.alias || "";
     // Keep user's price if entered, otherwise use existing
     if (formPrice.value.trim() === "" || parseFloat(formPrice.value) === 0) {
         formPrice.value = record.price;
@@ -641,9 +670,9 @@ async function loadPriceHistory(record) {
         <svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
             ${
                 poly
-                    ? `<polyline points="${poly}" fill="none" stroke="#5a7af5" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-                       <circle cx="${poly.split(" ").at(-1).split(",")[0]}" cy="${poly.split(" ").at(-1).split(",")[1]}" r="3" fill="#5a7af5"/>`
-                    : `<circle cx="${W / 2}" cy="${H / 2}" r="3.5" fill="#5a7af5"/>`
+                    ? `<polyline points="${poly}" fill="none" style="stroke: var(--primary)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+                       <circle cx="${poly.split(" ").at(-1).split(",")[0]}" cy="${poly.split(" ").at(-1).split(",")[1]}" r="3" style="fill: var(--primary)"/>`
+                    : `<circle cx="${W / 2}" cy="${H / 2}" r="3.5" style="fill: var(--primary)"/>`
             }
         </svg>`;
     box.style.display = "";
@@ -674,6 +703,9 @@ function openDetailModal(id) {
         ["录入时间", formatDate(record.created_at)],
         ["更新时间", formatDate(record.updated_at)],
     ];
+    if (record.alias) {
+        rows.splice(1, 0, ["别名", esc(record.alias)]);
+    }
     $("#detailRows").innerHTML = rows
         .map(([k, v]) => `<div class="detail-row"><span>${k}</span><span>${v}</span></div>`)
         .join("");
@@ -681,7 +713,14 @@ function openDetailModal(id) {
     loadPriceHistory(record);
 
     const game = record.cover ? GAMES_INDEX[record.cover] : null;
-    const intro = record.intro || (game ? game.d : "");
+    // 繁体中文介绍优先：记录里存的是英文自动介绍时，换用目录里的繁体介绍；
+    // 用户手动编辑过的介绍（与目录原文不同）保持原样
+    let intro = record.intro || "";
+    if (game && game.zi && (!intro || intro === game.d)) {
+        intro = game.zi;
+    } else if (!intro && game) {
+        intro = game.d;
+    }
     const introBox = $("#detailIntro");
     if (intro) {
         introBox.style.display = "";
@@ -855,6 +894,28 @@ document.addEventListener("keydown", (e) => {
         searchInput.focus();
     }
 });
+
+// ── 主题切换（深色/浅色）──────────────────────────────────────────────────
+// 首帧主题已在 <head> 内联脚本里确定（无闪烁），这里只负责切换与记忆
+function syncThemeButton() {
+    const light = document.documentElement.dataset.theme === "light";
+    themeToggle.textContent = light ? "🌙" : "☀️";
+    themeToggle.title = light ? "切换到深色模式" : "切换到浅色模式";
+}
+themeToggle.addEventListener("click", () => {
+    const root = document.documentElement;
+    const next = root.dataset.theme === "light" ? "dark" : "light";
+    root.classList.add("theming"); // 短暂启用全局颜色过渡，切换更顺滑
+    root.dataset.theme = next;
+    try {
+        localStorage.setItem("swpt-theme", next);
+    } catch {
+        /* localStorage 不可用时本次会话内切换仍生效 */
+    }
+    syncThemeButton();
+    setTimeout(() => root.classList.remove("theming"), 400);
+});
+syncThemeButton();
 
 // ── Init ───────────────────────────────────────────────────────────────────
 buildSourceOptions();

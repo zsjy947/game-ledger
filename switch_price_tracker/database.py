@@ -52,8 +52,15 @@ def _add_price_history_table(conn) -> None:
     )
 
 
+def _add_alias_column(conn) -> None:
+    """v4 → v5：新增用户自定义别名字段（用于搜索联想，如「野炊」）。"""
+    columns = [row["name"] for row in conn.execute("PRAGMA table_info(cartridges)")]
+    if "alias" not in columns:
+        conn.execute("ALTER TABLE cartridges ADD COLUMN alias TEXT NOT NULL DEFAULT ''")
+
+
 # 当前 schema 版本
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 _TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS cartridges (
@@ -84,6 +91,9 @@ MIGRATIONS: dict[int, list] = {
     ],
     4: [
         _add_price_history_table,
+    ],
+    5: [
+        _add_alias_column,
     ],
 }
 
@@ -153,8 +163,9 @@ def get_all(
     query = "SELECT * FROM cartridges WHERE 1=1"
     params: list = []
     if search:
-        query += " AND name LIKE ? ESCAPE '\\'"
-        params.append(f"%{_escape_like(search)}%")
+        like = f"%{_escape_like(search)}%"
+        query += " AND (name LIKE ? ESCAPE '\\' OR alias LIKE ? ESCAPE '\\')"
+        params.extend([like, like])
     if category:
         query += " AND category = ?"
         params.append(category)
@@ -178,14 +189,17 @@ def get_by_id(cartridge_id: int) -> dict | None:
 
 
 def search_suggest(name: str) -> list[dict]:
-    """输入联想：精确匹配优先，其余按名称模糊匹配，最多返回 5 条。"""
+    """输入联想：名称/别名精确匹配优先，其余模糊匹配，最多返回 5 条。"""
     with connect() as conn:
         exact = conn.execute(
-            "SELECT * FROM cartridges WHERE name = ?", (name,)
+            "SELECT * FROM cartridges WHERE name = ? OR alias = ?", (name, name)
         ).fetchall()
         exclude_ids = [row["id"] for row in exact]
-        fuzzy_sql = "SELECT * FROM cartridges WHERE name LIKE ? ESCAPE '\\'"
-        params: list = [f"%{_escape_like(name)}%"]
+        like = f"%{_escape_like(name)}%"
+        fuzzy_sql = (
+            "SELECT * FROM cartridges WHERE (name LIKE ? ESCAPE '\\' OR alias LIKE ? ESCAPE '\\')"
+        )
+        params: list = [like, like]
         if exclude_ids:
             fuzzy_sql += f" AND id NOT IN ({','.join('?' * len(exclude_ids))})"
             params += exclude_ids
@@ -223,6 +237,7 @@ def add(
     source: str = "",
     cover: str = "",
     intro: str = "",
+    alias: str = "",
     *,
     created_at: str | None = None,
     updated_at: str | None = None,
@@ -232,8 +247,8 @@ def add(
     created_at/updated_at：可选的显式时间戳（CSV 导入保真，需已通过
     records.parse_payload 的格式校验），缺省由数据库取当前时间。
     """
-    columns = ["category", "name", "price", "notes", "source", "cover", "intro"]
-    values: list = [category, name, price, notes, source, cover, intro]
+    columns = ["category", "name", "price", "notes", "source", "cover", "intro", "alias"]
+    values: list = [category, name, price, notes, source, cover, intro, alias]
     for key, value in (("created_at", created_at), ("updated_at", updated_at)):
         if value:
             columns.append(key)
@@ -260,6 +275,7 @@ def update(
     source: str = "",
     cover: str = "",
     intro: str = "",
+    alias: str = "",
 ) -> dict | None:
     """更新指定记录并返回更新后的数据；记录不存在时返回 None。
 
@@ -274,9 +290,9 @@ def update(
         cursor = conn.execute(
             """UPDATE cartridges
                SET category = ?, name = ?, price = ?, notes = ?, source = ?,
-                   cover = ?, intro = ?, updated_at = CURRENT_TIMESTAMP
+                   cover = ?, intro = ?, alias = ?, updated_at = CURRENT_TIMESTAMP
                WHERE id = ?""",
-            (category, name, price, notes, source, cover, intro, cartridge_id),
+            (category, name, price, notes, source, cover, intro, alias, cartridge_id),
         )
         if cursor.rowcount == 0:
             return None

@@ -142,6 +142,7 @@ def main() -> int:
             database.update(
                 record["id"], record["category"], record["name"], record["price"],
                 record["notes"], record["source"], top_game["i"], intro,
+                record.get("alias", ""),
             )
             linked += 1
             print(f"✓ 已关联  {record['name']}（{record['category']}） → {display} [{top_game['i']}] {top_score:.0f}分")
