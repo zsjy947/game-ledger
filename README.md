@@ -12,14 +12,15 @@
   如果程序已在运行，再次双击只会新开一个浏览器标签，不会重复启动。
   （bat 脚本内部的少量英文提示是刻意的：Windows cmd 解析非 ASCII 编码的 bat 容易出错，
   程序界面与日志均为中文。）
-- **打包成桌面软件**：双击 **`打包.bat`**，完成后在 `dist\SwitchPriceTracker\` 里双击
+- **打包成桌面软件**：双击 **`打包.bat`**，完成后在 `release\SwitchPriceTracker\` 里双击
   `SwitchPriceTracker.exe` —— 弹出的是**独立软件窗口**（Edge WebView2 渲染），
   不打开浏览器、没有黑色控制台窗口，任务栏/窗口图标为应用图标。
+  - **便携**：整个 `SwitchPriceTracker` 文件夹拷到任意位置（其他目录、其他电脑）双击即用，
+    无需安装；系统需自带 WebView2 运行时（Win10/11 默认已有）；
   - 重复双击会提示「已在运行中」，不会开第二个窗口；
-  - 数据保存在 exe 同目录的 `data` 文件夹下，整个文件夹可拷贝到其他 Windows 电脑
-    （目标机器无需安装 Python；系统需自带 WebView2 运行时，Win10/11 默认已有）；
+  - 数据保存在 exe 同目录的 `data` 文件夹下，随文件夹一起迁移；
   - 关闭窗口即退出服务。
-  注意：**重新打包会清空 `dist` 内的内容**，如数据已产生在 dist 里，打包前请先备份
+  注意：**重新打包会清空 `release` 内的内容**，如数据已产生在 release 里，打包前请先备份
   （`打包.bat` 检测到时会提醒你）。
 
 > 无需命令行；若想手动运行：`python run.py`（浏览器模式，便于开发调试）。
@@ -72,6 +73,7 @@ switch-price-tracker/
   支持按来源筛选，表格中彩色标签展示；
 - **内置游戏库**：19,500+ 款 Switch 游戏（名称、官方英文介绍、方形盒装封面、发行商、
   发售日期、分类、港服中文名），数据来自 Nintendo eShop 欧洲区官方接口，随应用离线内置。
+  桌面端从 `/api/games/catalog` 加载目录（唯一数据源 assets/games.json）；
   新增/编辑时输入名称即可联想游戏库——**中文名、简体化名、常用别名（喷射战士、
   街霸、怪物猎人……）均可命中**，点击「关联」自动挂上高清封面与介绍；
   表格显示封面缩略图，点击名称弹出详情页（大图封面 + 完整介绍）；
@@ -88,8 +90,9 @@ switch-price-tracker/
 .venv\Scripts\python.exe scripts\fetch_games.py --skip-zh      # 跳过中文接入
 ```
 
-脚本会从 Nintendo eShop（欧洲区）重新抓取并重建 `switch_price_tracker/assets/games.json`、
-`static/games.js`，按发售日期倒序，封面本地化前 N 个热门游戏。
+脚本会从 Nintendo eShop（欧洲区）重新抓取并重建 `switch_price_tracker/assets/games.json`
+（唯一数据源）与 `static/games.js`（仅供安卓分支打包 APK 使用，桌面端不用），
+按发售日期倒序，封面本地化前 N 个热门游戏。
 
 **中文数据接入**（默认开启，`--skip-zh` 跳过）：欧服目录的 Title ID（跨区通用）映射
 [blawar/titledb](https://github.com/blawar/titledb) 的 `HK.zh.json`（港服目录镜像，MIT），

@@ -1,5 +1,6 @@
 @echo off
 rem Build a standalone double-click exe folder with PyInstaller
+rem Output: release\SwitchPriceTracker\  (portable - copy anywhere and run)
 cd /d "%~dp0"
 setlocal
 title Build Switch Price Tracker
@@ -26,13 +27,20 @@ if errorlevel 1 (
 )
 
 rem 2. Build (one-folder mode: fast startup, fewer antivirus false positives)
-if exist "dist\SwitchPriceTracker\data" (
-    echo [NOTE] Data found in dist\SwitchPriceTracker\data.
+rem    - distpath release : final folder is release\SwitchPriceTracker\
+rem    - workpath/specpath build : intermediates stay inside build\ (gitignored)
+rem    - add-data sources are absolute (%~dp0) because specpath relocates
+rem      the spec file and relative data paths would resolve against it
+rem    - static ships app.js + style.css only; static\games.js is the Android
+rem      branch contract and is NOT used by the desktop app (catalog comes
+rem      from /api/games/catalog), so it is excluded to avoid duplicate data
+if exist "release\SwitchPriceTracker\data" (
+    echo [NOTE] Data found in release\SwitchPriceTracker\data.
     echo        Rebuilding will DELETE that folder - back it up first if needed.
     pause
 )
 echo Building, please wait (1-3 minutes)...
-"%VENV_PY%" -m PyInstaller --noconfirm --clean --onedir --windowed --icon "scripts\icon.ico" --name "SwitchPriceTracker" --add-data "switch_price_tracker\templates;switch_price_tracker\templates" --add-data "switch_price_tracker\static;switch_price_tracker\static" --add-data "switch_price_tracker\assets;switch_price_tracker\assets" --collect-all webview --collect-all clr_loader --collect-all pythonnet --hidden-import webview.platforms.edgechromium --hidden-import webview.platforms.winforms launcher.py
+"%VENV_PY%" -m PyInstaller --noconfirm --clean --onedir --windowed --distpath release --workpath build --specpath build --icon "%~dp0scripts\icon.ico" --name "SwitchPriceTracker" --add-data "%~dp0switch_price_tracker\templates;switch_price_tracker\templates" --add-data "%~dp0switch_price_tracker\static\app.js;switch_price_tracker\static" --add-data "%~dp0switch_price_tracker\static\style.css;switch_price_tracker\static" --add-data "%~dp0switch_price_tracker\assets;switch_price_tracker\assets" --collect-all webview --collect-all clr_loader --collect-all pythonnet --hidden-import webview.platforms.edgechromium --hidden-import webview.platforms.winforms "%~dp0launcher.py"
 if errorlevel 1 (
     echo [ERROR] Build failed. See the log above.
     pause
@@ -40,8 +48,9 @@ if errorlevel 1 (
 )
 
 echo.
-echo Build complete! Output folder: dist\SwitchPriceTracker\
+echo Build complete! Output folder: release\SwitchPriceTracker\
 echo Double-click SwitchPriceTracker.exe to open the app window.
-echo Data is stored in the data subfolder next to the exe (portable).
+echo The whole folder is portable - copy it anywhere and it still runs.
+echo Data is stored in the data subfolder next to the exe.
 pause
 endlocal

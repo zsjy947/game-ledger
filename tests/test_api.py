@@ -182,3 +182,15 @@ def test_suggest_endpoint(client):
     body = resp.get_json()
     assert body["success"] is True
     assert len(body["data"]) == 1
+
+
+def test_games_catalog_api(client, monkeypatch):
+    """游戏目录单源接口：服务端内存直出，桌面端不再依赖静态 games.js。"""
+    from switch_price_tracker import games
+
+    monkeypatch.setattr(games, "_catalog", [{"i": "1", "t": "Fake Game"}], raising=False)
+    resp = client.get("/api/games/catalog")
+    body = resp.get_json()
+    assert body["success"] is True
+    assert body["data"][0]["t"] == "Fake Game"
+    assert "no-cache" in resp.headers["Cache-Control"]

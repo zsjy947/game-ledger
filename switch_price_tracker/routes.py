@@ -41,6 +41,18 @@ def game_cover(game_id: str):
     return Response(data, mimetype="image/jpeg", headers={"Cache-Control": "public, max-age=604800"})
 
 
+@bp.get("/api/games/catalog")
+def games_catalog():
+    """内置游戏目录（桌面端搜索用）。
+
+    唯一数据源是 assets/games.json（服务端已在内存里），不再随包携带
+    同内容的静态 games.js；安卓分支仍使用静态 games.js 契约。
+    """
+    resp = jsonify({"success": True, "data": games.all_games()})
+    resp.headers["Cache-Control"] = "no-cache"  # fetch_games 更新目录后立即生效
+    return resp
+
+
 # ── API：卡带 CRUD ──────────────────────────────────────────────────────────
 
 @bp.get("/api/cartridges")

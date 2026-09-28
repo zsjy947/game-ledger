@@ -11,10 +11,26 @@ const SOURCE_CLASS = {
     "支付宝刷券": "src-zfb",
 };
 
-// 内置游戏库（由 games.js 提供，含 id/标题/介绍/封面URL/热度）
-const GAMES = window.__GAMES__ || [];
+// 内置游戏库：从 /api/games/catalog 单源加载（服务端内存直出，不再随包
+// 携带同内容的静态 games.js——那是安卓分支专用契约，见 fetch_games.py）
+let GAMES = [];
 const GAMES_INDEX = {};
-for (const g of GAMES) GAMES_INDEX[g.i] = g;
+let GAMES_SEARCH = [];
+const gamesReady = fetch("/api/games/catalog")
+    .then((res) => (res.ok ? res.json() : { data: [] }))
+    .then((result) => {
+        GAMES = Array.isArray(result.data) ? result.data : [];
+        for (const g of GAMES) GAMES_INDEX[g.i] = g;
+        // 预归一化搜索字段（约 2 万款 × 若干字段，避免每次键入重复正则）
+        GAMES_SEARCH = GAMES.map((g) => {
+            const fields = [g.t];
+            if (g.zh) fields.push(g.zh);
+            if (g.zhs) fields.push(g.zhs);
+            if (g.zs) fields.push(...g.zs);
+            return { g, fields: fields.map(normText) };
+        });
+    })
+    .catch(() => {}); // 加载失败时游戏库功能降级为空，记录功能不受影响
 
 /** 封面地址：桌面端走 /cover/<id>（内置资源→缓存→在线）；安卓分支覆盖此函数。 */
 function coverUrl(gameId) {
@@ -116,15 +132,6 @@ const normText = (s) =>
 function gameDisplayName(g) {
     return g.zhs || g.zh || g.t;
 }
-
-// 启动时预归一化搜索字段（约 2 万款 × 若干字段，避免每次键入重复正则）
-const GAMES_SEARCH = GAMES.map((g) => {
-    const fields = [g.t];
-    if (g.zh) fields.push(g.zh);
-    if (g.zhs) fields.push(g.zhs);
-    if (g.zs) fields.push(...g.zs);
-    return { g, fields: fields.map(normText) };
-});
 
 /**
  * 搜索内置游戏库：英文名 / 繁体中文名 / 简体化名 / 人工别名。
@@ -476,6 +483,8 @@ async function onNameInput() {
 
     const seq = suggestSeq + 1;
     suggestSeq = seq;
+    await gamesReady; // 游戏目录异步加载，联想前等待（本地接口，毫秒级）
+    if (seq !== suggestSeq) return; // 输入已变化或下拉已关闭，丢弃过期响应
     const [recordsResult, gameMatches] = await Promise.all([
         api(`/api/cartridges/suggest?q=${encodeURIComponent(q)}`),
         Promise.resolve(searchGames(q)),

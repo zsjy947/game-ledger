@@ -229,9 +229,8 @@
         </div>
     </footer>
 
-    <!-- games.js 7MB 数据文件：defer 解除首屏渲染阻塞；两个 defer 脚本按文档顺序执行，
-         保证 window.__GAMES__ 在 app.js 运行前就绪（安卓分支依赖同一契约） -->
-    <script src="/static/games.js" defer></script>
+    <!-- 游戏目录由 app.js 异步加载 /api/games/catalog（服务端内存直出，
+         不随包携带同内容的静态 games.js——那是安卓分支专用契约） -->
     <script src="/static/app.js" defer></script>
 </body>
 </html>

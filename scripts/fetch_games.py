@@ -1,8 +1,11 @@
 """从 Nintendo eShop（欧洲区官方搜索接口）抓取 Switch 游戏目录，生成内置游戏库。
 
 产出（均可由 --skip-* 控制）：
-- switch_price_tracker/assets/games.json   游戏目录（服务端封面解析用）
-- switch_price_tracker/static/games.js     同数据的 JS 形式（前端/安卓内置搜索用）
+- switch_price_tracker/assets/games.json   游戏目录（唯一数据源：服务端封面解析、
+                                           桌面前端经 /api/games/catalog 加载）
+- switch_price_tracker/static/games.js     同数据的 JS 形式（仅安卓分支契约：
+                                           android/prepare_assets.py 复制进 APK；
+                                           桌面端已不使用、打包时也不再携带）
 - switch_price_tracker/assets/covers/<id>.jpg  热门游戏封面缩略图（本地化，离线可用）
 
 数据来源：
