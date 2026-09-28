@@ -9,12 +9,12 @@
 
 ## 快速开始（双击即用）
 
-- **日常使用**：双击 **`启动.bat`**。首次运行会自动创建虚拟环境并安装依赖（需联网一次），
+- **日常使用**：双击 **`start.bat`**。首次运行会自动创建虚拟环境并安装依赖（需联网一次），
   之后每次双击即启动服务并自动打开浏览器；关闭黑色窗口即退出服务。
   如果程序已在运行，再次双击只会新开一个浏览器标签，不会重复启动。
   （bat 脚本内部的少量英文提示是刻意的：Windows cmd 解析非 ASCII 编码的 bat 容易出错，
   程序界面与日志均为中文。）
-- **打包成桌面软件**：双击 **`打包.bat`**，完成后在 `release\GameLedger\` 里双击
+- **打包成桌面软件**：双击 **`build.bat`**，完成后在 `release\GameLedger\` 里双击
   `GameLedger.exe` —— 弹出的是**独立软件窗口**（Edge WebView2 渲染），
   不打开浏览器、没有黑色控制台窗口，任务栏/窗口图标为应用图标。
   - **便携**：整个 `GameLedger` 文件夹拷到任意位置（其他目录、其他电脑）双击即用，
@@ -23,7 +23,7 @@
   - 数据保存在 exe 同目录的 `data` 文件夹下，随文件夹一起迁移；
   - 关闭窗口即退出服务。
   注意：**重新打包会清空 `release` 内的内容**，如数据已产生在 release 里，打包前请先备份
-  （`打包.bat` 检测到时会提醒你）。
+  （`build.bat` 检测到时会提醒你）。
   打包完成后还会把整个文件夹压缩为 `release\GameLedger-portable.zip`——
   发布到 GitHub Release 时，zip 即为可直接下载解压使用的单文件资产。
 
@@ -33,13 +33,12 @@
 
 ```
 game-ledger/
-├── 启动.bat                  # 双击启动（自动建 venv / 装依赖 / 开浏览器）
-├── 打包.bat                  # 双击打包桌面 exe（release\GameLedger\）
+├── start.bat                  # 双击启动（自动建 venv / 装依赖 / 开浏览器）
+├── build.bat                  # 双击打包桌面 exe（release\GameLedger\）
 ├── run.py                    # 开发运行入口（浏览器模式）
 ├── launcher.py               # PyInstaller 打包入口（桌面窗口模式）
 ├── wsgi.py                   # WSGI 入口（供 waitress/gunicorn 使用）
-├── requirements.txt          # 运行依赖
-├── requirements-dev.txt      # 开发依赖（pytest、pyinstaller、pillow、opencc）
+├── requirements.txt          # 全部依赖（运行 + 开发/打包）
 ├── scripts/
 │   ├── make_icon.py          # 生成应用图标（任天堂红）
 │   ├── icon.ico              # 应用图标（exe / 任务栏）

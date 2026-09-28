@@ -1,3 +1,9 @@
-# 运行依赖
+# 依赖清单（运行 + 开发/打包）
+# ── 运行依赖 ──
 flask>=3.0
 pywebview>=5.4 ; sys_platform == 'win32'  # 桌面窗口（Edge WebView2）
+# ── 开发 / 打包依赖 ──
+pytest>=8.0
+pyinstaller>=6.0
+pillow>=10.0                        # 生成应用图标（scripts/make_icon.py）
+opencc-python-reimplemented>=0.1.7  # 游戏库中文化（scripts/fetch_games.py 繁转简）
