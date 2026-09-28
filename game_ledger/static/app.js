@@ -11,31 +11,64 @@ const SOURCE_CLASS = {
     "支付宝刷券": "src-zfb",
 };
 
-// 内置游戏库：从 /api/games/catalog 单源加载（服务端内存直出，不再随包
-// 携带同内容的静态 games.js——那是安卓分支专用契约，见 fetch_games.py）
+// 安卓壳（file:// 协议）下走原生存储桥；?native=1 供浏览器模拟测试
+const NATIVE_MODE =
+    location.protocol === "file:" ||
+    new URLSearchParams(location.search).has("native");
+
+// 内置游戏库：桌面端从 /api/games/catalog 加载（服务端内存直出）；
+// 安卓壳由打包期生成的 games.js 提供（window.__GAMES__，见 android/prepare_assets.py）
 let GAMES = [];
 const GAMES_INDEX = {};
 let GAMES_SEARCH = [];
-const gamesReady = fetch("/api/games/catalog")
-    .then((res) => (res.ok ? res.json() : { data: [] }))
-    .then((result) => {
-        GAMES = Array.isArray(result.data) ? result.data : [];
-        for (const g of GAMES) GAMES_INDEX[g.i] = g;
-        // 预归一化搜索字段（约 2 万款 × 若干字段，避免每次键入重复正则）
-        GAMES_SEARCH = GAMES.map((g) => {
-            const fields = [g.t];
-            if (g.zh) fields.push(g.zh);
-            if (g.zhs) fields.push(g.zhs);
-            if (g.zs) fields.push(...g.zs);
-            return { g, fields: fields.map(normText) };
-        });
-    })
-    .catch(() => {}); // 加载失败时游戏库功能降级为空，记录功能不受影响
 
-/** 封面地址：桌面端走 /cover/<id>（内置资源→缓存→在线）；安卓分支覆盖此函数。 */
-function coverUrl(gameId) {
-    return `/cover/${encodeURIComponent(gameId)}`;
+function buildGamesIndex() {
+    for (const g of GAMES) GAMES_INDEX[g.i] = g;
+    // 预归一化搜索字段（约 2 万款 × 若干字段，避免每次键入重复正则）
+    GAMES_SEARCH = GAMES.map((g) => {
+        const fields = [g.t];
+        if (g.zh) fields.push(g.zh);
+        if (g.zhs) fields.push(g.zhs);
+        if (g.zs) fields.push(...g.zs);
+        return { g, fields: fields.map(normText) };
+    });
 }
+
+// 微任务里初始化：buildGamesIndex 依赖文件后部定义的 normText
+const gamesReady = NATIVE_MODE
+    ? Promise.resolve().then(() => {
+          GAMES = Array.isArray(window.__GAMES__) ? window.__GAMES__ : [];
+          buildGamesIndex();
+      })
+    : fetch("/api/games/catalog")
+          .then((res) => (res.ok ? res.json() : { data: [] }))
+          .then((result) => {
+              GAMES = Array.isArray(result.data) ? result.data : [];
+              buildGamesIndex();
+          })
+          .catch(() => {}); // 加载失败时游戏库功能降级为空，记录功能不受影响
+
+/** 封面地址：桌面端走 /cover/<id>（内置资源→缓存→在线）；安卓端用内置资产封面。 */
+function coverUrl(gameId) {
+    return NATIVE_MODE
+        ? `covers/${encodeURIComponent(gameId)}.jpg`
+        : `/cover/${encodeURIComponent(gameId)}`;
+}
+
+/**
+ * 封面加载失败的回退链：安卓壳内置封面缺失时切换到在线官方地址；
+ * 在线也失败（或非安卓环境）返回 false，由调用方移除/隐藏元素。
+ */
+function coverImgError(img, gameId) {
+    const game = gameId ? GAMES_INDEX[gameId] : null;
+    if (NATIVE_MODE && game && game.c && img.dataset.onlineFallback !== "1") {
+        img.dataset.onlineFallback = "1";
+        img.src = game.c;
+        return true;
+    }
+    return false;
+}
+window.coverImgError = coverImgError; // 供内联 onerror 调用
 
 // ── State ──────────────────────────────────────────────────────────────────
 let cartridges = [];
@@ -213,6 +246,7 @@ function clearGame() {
 
 // ── API helpers ────────────────────────────────────────────────────────────
 async function api(path, options = {}) {
+    if (NATIVE_MODE) return nativeApi(path, options);
     // 非 JSON 响应（如 500 的 HTML 错误页）或网络失败统一降级，
     // 调用方按 result.success 分支即可
     try {
@@ -224,6 +258,42 @@ async function api(path, options = {}) {
     } catch {
         return { success: false, message: "网络错误，请重试" };
     }
+}
+
+/**
+ * 安卓壳：REST 语义直连 StorageBridge（SQLite）。
+ * 桥同步返回 {"status", "body"}，这里包装成与 fetch 一致的 Promise 形态。
+ */
+function nativeApi(path, options = {}) {
+    return new Promise((resolve) => {
+        const method = (options.method || "GET").toUpperCase();
+        const [pathOnly, query = ""] = path.split("?");
+        let envelope;
+        try {
+            envelope = JSON.parse(
+                window.GameLedgerBridge.request(
+                    method, pathOnly, query,
+                    options.body ? String(options.body) : ""
+                )
+            );
+        } catch {
+            resolve({ success: false, message: "本地存储不可用" });
+            return;
+        }
+        let body = envelope && envelope.body;
+        if (typeof body === "string") {
+            try {
+                body = JSON.parse(body);
+            } catch {
+                /* 保留原文，由下方统一兜底 */
+            }
+        }
+        resolve(
+            body && typeof body === "object" && "success" in body
+                ? body
+                : { success: false, message: "本地存储响应异常" }
+        );
+    });
 }
 
 // ── Toast ──────────────────────────────────────────────────────────────────
@@ -288,7 +358,7 @@ function renderTable() {
                 <td class="cover-cell">
                     <div class="cover-thumb${c.cover ? "" : " empty"}">${
                         c.cover
-                            ? `<img loading="lazy" src="${coverUrl(c.cover)}" onerror="this.remove()">`
+                            ? `<img loading="lazy" src="${coverUrl(c.cover)}" onerror="if(!coverImgError(this,'${esc(c.cover)}'))this.remove()">`
                             : ""
                     }</div>
                 </td>
@@ -583,7 +653,7 @@ function renderSuggest(gameMatches = []) {
                         : "";
                     return `
                 <div class="suggest-item game-item" data-game="${esc(g.i)}">
-                    <span class="suggest-game-cover"><img loading="lazy" src="${coverUrl(g.i)}" onerror="this.remove()"></span>
+                    <span class="suggest-game-cover"><img loading="lazy" src="${coverUrl(g.i)}" onerror="if(!coverImgError(this,'${esc(g.i)}'))this.remove()"></span>
                     <span class="suggest-name">${esc(gameDisplayName(g))}${subHtml}</span>
                     <span class="suggest-existing">${esc(g.p || "")}</span>
                     <span class="suggest-hint">→ 关联</span>
@@ -687,7 +757,10 @@ function openDetailModal(id) {
     $("#detailCover").style.display = record.cover ? "" : "none";
     $("#detailCover").src = record.cover ? coverUrl(record.cover) : "";
     $("#detailCover").onerror = () => {
-        $("#detailCover").style.display = "none";
+        // 安卓壳内置封面缺失时回退在线官方地址，仍失败才隐藏
+        if (!coverImgError($("#detailCover"), record.cover)) {
+            $("#detailCover").style.display = "none";
+        }
     };
 
     const tags = [
@@ -807,21 +880,58 @@ sourceFilter.addEventListener("change", loadData);
 $("#addBtn").addEventListener("click", openAddModal);
 
 // ── CSV 导出 / 导入 ────────────────────────────────────────────────────────
-$("#exportBtn").addEventListener("click", () => {
+$("#exportBtn").addEventListener("click", async () => {
+    if (NATIVE_MODE) {
+        // 安卓壳：经存储桥取 CSV 文本，由原生层写入系统下载目录
+        const result = await api("/api/export/csv");
+        const data = result.success && result.data;
+        if (!data) {
+            showToast(result.message || "导出失败", "error");
+            return;
+        }
+        const saved = window.GameLedgerBridge.saveFile(
+            data.filename, "text/csv; charset=utf-8", data.content
+        );
+        showToast(
+            saved ? `已导出到：${saved}` : "导出失败，请重试",
+            saved ? "success" : "error"
+        );
+        return;
+    }
     window.location.href = "/api/export/csv";
 });
 
 $("#importBtn").addEventListener("click", () => $("#importFile").click());
 
+/** 读文本文件（FileReader，兼容旧 WebView；file.text() 在 minSdk 24 旧内核上不可靠）。 */
+function readFileText(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsText(file, "utf-8");
+    });
+}
+
 $("#importFile").addEventListener("change", async (e) => {
     const file = e.target.files[0];
     e.target.value = ""; // 允许连续导入同一个文件
     if (!file) return;
-    const fd = new FormData();
-    fd.append("file", file);
     try {
-        const res = await fetch("/api/import/csv", { method: "POST", body: fd });
-        const result = await res.json();
+        let result;
+        if (NATIVE_MODE) {
+            // 安卓壳：无 multipart，读文件文本后以 JSON 提交
+            const content = await readFileText(file);
+            result = await api("/api/import/csv", {
+                method: "POST",
+                body: JSON.stringify({ content }),
+            });
+        } else {
+            const fd = new FormData();
+            fd.append("file", file);
+            const res = await fetch("/api/import/csv", { method: "POST", body: fd });
+            result = await res.json();
+        }
         if (result.success) {
             const firstError = result.data && result.data.errors && result.data.errors[0];
             showToast(firstError ? `${result.message}；${firstError}` : result.message, "success");
@@ -894,6 +1004,21 @@ document.addEventListener("keydown", (e) => {
         searchInput.focus();
     }
 });
+
+// ── 安卓返回键（由 MainActivity 注入调用）──────────────────────────────────
+// 返回 true 表示前端已消费（关闭了弹层），false 交给壳做 WebView 后退/退出
+window.__onBackPressed = function () {
+    if (confirmOverlay.classList.contains("active")) {
+        closeDeleteConfirm();
+    } else if (detailOverlay.classList.contains("active")) {
+        closeDetailModal();
+    } else if (modalOverlay.classList.contains("active")) {
+        closeModal();
+    } else {
+        return false;
+    }
+    return true;
+};
 
 // ── 主题切换（深色/浅色）──────────────────────────────────────────────────
 // 首帧主题已在 <head> 内联脚本里确定（无闪烁）；太阳/月亮图标由 CSS
