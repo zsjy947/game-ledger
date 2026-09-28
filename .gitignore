@@ -15,3 +15,6 @@ release/
 # 迁移备份库与运行时封面缓存（正式数据库 data/prices.db 保留与否由使用者决定）
 data/prices.backup-*.db
 data/covers/
+
+# 本地计划/报告文档（不入库）
+docs/
