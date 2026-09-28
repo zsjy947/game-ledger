@@ -24,7 +24,10 @@ GAME_ID_RE = re.compile(r"[0-9A-Za-z_-]{1,64}")
 def index():
     """单页前端。"""
     return render_template(
-        "index.html", version=__version__, source_presets=records.SOURCE_PRESETS
+        "index.html",
+        version=__version__,
+        source_presets=records.SOURCE_PRESETS,
+        categories=records.CATEGORIES,
     )
 
 

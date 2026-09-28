@@ -48,7 +48,7 @@ public class StorageBridge {
     public static final String JS_NAME = "GameLedgerBridge";
 
     /** 与 game_ledger/records.py 保持一致的常量。 */
-    private static final String[] VALID_CATEGORIES = {"NS", "NS2"};
+    private static final String[] VALID_CATEGORIES = {"NS", "NS2", "PS4", "PS5"};
     private static final int MAX_SOURCE_LENGTH = 50;
     private static final int MAX_INTRO_LENGTH = 6000;
     private static final int MAX_COVER_LENGTH = 64;
@@ -71,9 +71,65 @@ public class StorageBridge {
             + " updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)";
 
     private final Helper helper;
+    private boolean v6Done = false;
 
     public StorageBridge(Context context) {
         helper = new Helper(context.getApplicationContext());
+    }
+
+    /**
+     * 取可写库连接，并惰性完成 v6 迁移（放宽分类 CHECK 的表重建）。
+     *
+     * v6 重建必须 DROP 父表，而 SQLiteOpenHelper 的 onUpgrade 运行在框架
+     * 事务内、PRAGMA foreign_keys 在事务内是空操作——那会让 DROP 触发
+     * 级联清空 price_history。因此 v6 放到这里在事务外执行（与桌面端
+     * database.py 的迁移语义一致）。
+     */
+    private SQLiteDatabase db() {
+        SQLiteDatabase db = helper.getWritableDatabase();
+        if (!v6Done) {
+            v6Done = true;
+            int version = db.getVersion();
+            if (version < Helper.SCHEMA_VERSION_V6) {
+                helper.backupBeforeMigrate(db, version);
+                migrateV6(db);
+            }
+        }
+        return db;
+    }
+
+    /** v6：重建 cartridges 去掉 CHECK (category IN ('NS','NS2'))。 */
+    private static void migrateV6(SQLiteDatabase db) {
+        db.execSQL("DROP TABLE IF EXISTS cartridges_v6"); // 清理可能的半成品
+        db.execSQL("PRAGMA foreign_keys = OFF");
+        db.execSQL(
+                "CREATE TABLE cartridges_v6 ("
+                + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + " category TEXT NOT NULL,"
+                + " name TEXT NOT NULL,"
+                + " price REAL NOT NULL DEFAULT 0,"
+                + " notes TEXT NOT NULL DEFAULT '',"
+                + " created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+                + " updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+                + " source TEXT NOT NULL DEFAULT '',"
+                + " cover TEXT NOT NULL DEFAULT '',"
+                + " intro TEXT NOT NULL DEFAULT '',"
+                + " alias TEXT NOT NULL DEFAULT '')");
+        db.execSQL("INSERT INTO cartridges_v6 (id, category, name, price, notes,"
+                + " created_at, updated_at, source, cover, intro, alias)"
+                + " SELECT id, category, name, price, notes, created_at,"
+                + " updated_at, source, cover, intro, alias FROM cartridges");
+        db.execSQL("DROP TABLE cartridges");
+        db.execSQL("ALTER TABLE cartridges_v6 RENAME TO cartridges");
+        for (String sql : new String[]{
+                "CREATE INDEX IF NOT EXISTS idx_cartridges_name ON cartridges(name)",
+                "CREATE INDEX IF NOT EXISTS idx_cartridges_category ON cartridges(category)",
+                "CREATE INDEX IF NOT EXISTS idx_cartridges_updated_at ON cartridges(updated_at)",
+                "CREATE INDEX IF NOT EXISTS idx_cartridges_source ON cartridges(source)"}) {
+            db.execSQL(sql);
+        }
+        db.execSQL("PRAGMA foreign_keys = ON");
+        db.setVersion(Helper.SCHEMA_VERSION_V6);
     }
 
     /** 前端唯一入口：同步 REST 调用，永不向 JS 抛异常。 */
@@ -254,7 +310,7 @@ public class StorageBridge {
         }
         sql.append(" ORDER BY updated_at DESC, id DESC");
 
-        SQLiteDatabase db = helper.getReadableDatabase();
+        SQLiteDatabase db = db();
         try (Cursor c = db.rawQuery(sql.toString(), args.toArray(new String[0]))) {
             JSONArray arr = new JSONArray();
             while (c.moveToNext()) arr.put(rowToJson(c));
@@ -265,7 +321,7 @@ public class StorageBridge {
     private JSONObject suggest(String query) throws JSONException {
         String q = param(query, "q").trim();
         if (q.isEmpty()) return ok(new JSONArray());
-        SQLiteDatabase db = helper.getReadableDatabase();
+        SQLiteDatabase db = db();
 
         List<JSONObject> results = new ArrayList<>();
         List<Long> exactIds = new ArrayList<>();
@@ -307,7 +363,7 @@ public class StorageBridge {
     }
 
     private Response getCartridge(long id) throws JSONException {
-        SQLiteDatabase db = helper.getReadableDatabase();
+        SQLiteDatabase db = db();
         try (Cursor c = db.rawQuery("SELECT * FROM cartridges WHERE id = ?",
                 new String[]{String.valueOf(id)})) {
             if (!c.moveToFirst()) return new Response(404, fail("记录不存在"));
@@ -316,7 +372,7 @@ public class StorageBridge {
     }
 
     private Response priceHistory(long id) throws JSONException {
-        SQLiteDatabase db = helper.getReadableDatabase();
+        SQLiteDatabase db = db();
         try (Cursor exists = db.rawQuery("SELECT 1 FROM cartridges WHERE id = ?",
                 new String[]{String.valueOf(id)})) {
             if (!exists.moveToFirst()) return new Response(404, fail("记录不存在"));
@@ -343,7 +399,7 @@ public class StorageBridge {
         if (body == null) return new Response(400, fail("请求体必须为 JSON"));
         Parsed fields = Parsed.parse(body, null);
         if (fields.error != null) return new Response(400, fail(fields.error));
-        SQLiteDatabase db = helper.getWritableDatabase();
+        SQLiteDatabase db = db();
         db.beginTransaction();
         try {
             JSONObject record = insertRecord(db, fields);
@@ -357,7 +413,7 @@ public class StorageBridge {
     private Response updateCartridge(long id, String jsonBody) throws JSONException {
         JSONObject body = parseBodyObject(jsonBody);
         if (body == null) return new Response(400, fail("请求体必须为 JSON"));
-        SQLiteDatabase db = helper.getWritableDatabase();
+        SQLiteDatabase db = db();
         db.beginTransaction();
         try {
             JSONObject existing;
@@ -395,7 +451,7 @@ public class StorageBridge {
     }
 
     private Response deleteCartridge(long id) throws JSONException {
-        SQLiteDatabase db = helper.getWritableDatabase();
+        SQLiteDatabase db = db();
         int rows = db.delete("cartridges", "id = ?", new String[]{String.valueOf(id)});
         if (rows == 0) return new Response(404, fail("记录不存在"));
         return new Response(200, okMessage("删除成功"));
@@ -417,7 +473,7 @@ public class StorageBridge {
     private JSONObject exportCsv() throws JSONException {
         StringBuilder sb = new StringBuilder("\uFEFF"); // UTF-8 BOM
         sb.append(String.join(",", CSV_FIELDS)).append("\r\n");
-        SQLiteDatabase db = helper.getReadableDatabase();
+        SQLiteDatabase db = db();
         try (Cursor c = db.rawQuery(
                 "SELECT * FROM cartridges ORDER BY updated_at DESC, id DESC", null)) {
             while (c.moveToNext()) {
@@ -463,7 +519,7 @@ public class StorageBridge {
         }
 
         Set<String> existing = new HashSet<>();
-        SQLiteDatabase db = helper.getWritableDatabase();
+        SQLiteDatabase db = db();
         db.beginTransaction();
         int imported = 0, skipped = 0, failed = 0;
         List<String> errors = new ArrayList<>();
@@ -619,7 +675,7 @@ public class StorageBridge {
         for (int i = 0; i < ids.size(); i++) sql.append(i == 0 ? "?" : ",?");
         sql.append(") GROUP BY cartridge_id");
         for (long id : ids) args.add(String.valueOf(id));
-        SQLiteDatabase db = helper.getReadableDatabase();
+        SQLiteDatabase db = db();
         try (Cursor c = db.rawQuery(sql.toString(), args.toArray(new String[0]))) {
             while (c.moveToNext()) out.put(c.getLong(0), c.getDouble(1));
         }
@@ -802,7 +858,8 @@ public class StorageBridge {
     private static final class Helper extends SQLiteOpenHelper {
 
         static final String DB_NAME = "prices.db";
-        static final int SCHEMA_VERSION = 5;
+        static final int SCHEMA_VERSION = 5;   // Helper 负责到 v5；v6 由 StorageBridge.db() 事务外惰性执行
+        static final int SCHEMA_VERSION_V6 = 6;
         private final Context context;
 
         Helper(Context context) {
@@ -832,8 +889,17 @@ public class StorageBridge {
             migrate(db, oldVersion);
         }
 
+        /**
+         * v6 起版本号由 StorageBridge.db() 在事务外推进（库版本会高于
+         * Helper 目标 5）。静默忽略该差异，避免被当作降级异常抛出。
+         */
+        @Override
+        public void onDowngrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+            // 有意留空：见方法注释
+        }
+
         /** 迁移前备份旧库（与 database.py 行为一致）；空库/失败不阻塞迁移。 */
-        private void backupBeforeMigrate(SQLiteDatabase db, int oldVersion) {
+        void backupBeforeMigrate(SQLiteDatabase db, int oldVersion) {
             try {
                 try (Cursor c = db.rawQuery(
                         "SELECT 1 FROM sqlite_master WHERE type='table'"

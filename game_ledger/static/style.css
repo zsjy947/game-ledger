@@ -23,6 +23,8 @@
     --success: #4ec9b0;
     --ns-color: #e84142;
     --ns2-color: #4a90d9;
+    --ps4-color: #3f8ac9;
+    --ps5-color: #7aa9e0;
     --src-fudai: #ff9668;
     --src-v3: #6fb1e8;
     --radius: 8px;
@@ -51,6 +53,8 @@
     --success: #178f6d;
     --ns-color: #d32627;
     --ns2-color: #2f6fb5;
+    --ps4-color: #2f6fb5;
+    --ps5-color: #5d8fc4;
     --src-fudai: #b3552a;
     --src-v3: #2f6fb5;
     --shadow: 0 4px 24px rgba(140, 60, 60, 0.14);
@@ -298,6 +302,12 @@ header {
 .stat-card.accent-ns2::before {
     background: var(--ns2-color);
 }
+.stat-card.accent-ps4::before {
+    background: var(--ps4-color);
+}
+.stat-card.accent-ps5::before {
+    background: var(--ps5-color);
+}
 .stat-card.accent-cost::before {
     background: var(--success);
 }
@@ -432,6 +442,14 @@ td .btn {
 .category-tag.ns2 {
     background: color-mix(in srgb, var(--ns2-color) 18%, transparent);
     color: var(--ns2-color);
+}
+.category-tag.ps4 {
+    background: color-mix(in srgb, var(--ps4-color) 18%, transparent);
+    color: var(--ps4-color);
+}
+.category-tag.ps5 {
+    background: color-mix(in srgb, var(--ps5-color) 18%, transparent);
+    color: var(--ps5-color);
 }
 
 /* 来源标签 */

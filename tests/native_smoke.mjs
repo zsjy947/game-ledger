@@ -103,7 +103,16 @@ window.GameLedgerBridge = {
 };
 window.requestAnimationFrame = (fn) => setTimeout(fn, 0);
 // index.html 的内联注入脚本在 outside-only 模式下不会执行，这里手动补上
-window.__APP__ = { version: "1.0.0-test", sourcePresets: ["拼多多福袋", "拼多多V3", "支付宝刷券"] };
+window.__APP__ = {
+  version: "1.0.0-test",
+  sourcePresets: ["拼多多福袋", "拼多多V3", "支付宝刷券"],
+  categories: [
+    { value: "NS", label: "NS 卡带", class: "ns" },
+    { value: "NS2", label: "NS2 卡带", class: "ns2" },
+    { value: "PS4", label: "PS4 光盘", class: "ps4" },
+    { value: "PS5", label: "PS5 光盘", class: "ps5" },
+  ],
+};
 
 // 依 index.html 的脚本顺序执行：games.js（内联文本）→ app.js
 window.eval(gamesJs);
@@ -120,6 +129,8 @@ const check = (name, cond) => {
 await sleep(300); // 等 loadData 渲染
 
 check("NATIVE_MODE 生效（卡片渲染）", $("#cardList").textContent.includes("塞尔达传说"));
+check("分类下拉动态生成（含 PS5）", [...$("#formCategory").options].some((o) => o.value === "PS5"));
+check("统计卡动态生成（PS4 卡片存在）", $("#statCat-ps4") !== null);
 check("游戏库已加载（19579 款）", Array.isArray(window.__GAMES__) && window.__GAMES__.length > 10000);
 check("游戏搜索可用（索引已构建）", typeof window.searchGames === "function" && window.searchGames("塞尔达").length > 0);
 check("统计卡：总数 = 2", $("#statTotal").textContent === "2");

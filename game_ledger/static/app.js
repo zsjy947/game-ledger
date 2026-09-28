@@ -4,6 +4,7 @@
 
 // ── 常量（服务端注入，前后端单一数据源）────────────────────────────────────
 const SOURCE_PRESETS = window.__APP__.sourcePresets || [];
+const CATEGORIES = window.__APP__.categories || []; // [{value,label,class}]
 const SOURCE_CUSTOM = "__custom__";
 const SOURCE_CLASS = {
     "拼多多福袋": "src-fudai",
@@ -117,6 +118,19 @@ const gameChipMeta = $("#gameChipMeta");
 const gameChipCover = $("#gameChipCover");
 
 // ── 来源选项 ───────────────────────────────────────────────────────────────
+/** 分类选项：筛选与表单两处下拉共用 __APP__.categories 配置。 */
+function buildCategoryOptions() {
+    for (const select of [categoryFilter, formCategory]) {
+        select.innerHTML = "";
+        select.appendChild(
+            new Option(select === formCategory ? "请选择分类" : "全部分类", "")
+        );
+        for (const cat of CATEGORIES) {
+            select.appendChild(new Option(cat.value, cat.value));
+        }
+    }
+}
+
 function buildSourceOptions() {
     formSource.innerHTML = "";
     formSource.appendChild(new Option("未指定", ""));
@@ -460,23 +474,49 @@ function bindRecordEvents(scope) {
     });
 }
 
+let statCardsBuilt = false;
+
+/** 按分类配置生成统计卡（总记录、各分类、总花费），只建一次。 */
+function ensureStatCards() {
+    if (statCardsBuilt) return;
+    statCardsBuilt = true;
+    const container = $("#statCards");
+    const costCard = container.querySelector(".accent-cost");
+    for (const cat of CATEGORIES) {
+        const card = document.createElement("div");
+        card.className = `stat-card accent-${cat.class}`;
+        const label = document.createElement("span");
+        label.className = "stat-label";
+        label.textContent = cat.label;
+        const value = document.createElement("span");
+        value.className = "stat-value";
+        value.id = `statCat-${cat.class}`;
+        value.textContent = "0";
+        card.append(label, value);
+        container.insertBefore(card, costCard);
+    }
+}
+
 function renderStats() {
-    // 统计卡片
-    const nsCount = cartridges.filter((c) => c.category === "NS").length;
-    const ns2Count = cartridges.filter((c) => c.category === "NS2").length;
+    ensureStatCards();
+    // 总记录 + 各分类计数 + 总花费
+    const counts = {};
+    for (const c of cartridges) counts[c.category] = (counts[c.category] || 0) + 1;
     const totalCost = cartridges.reduce((sum, c) => sum + (parseFloat(c.price) || 0), 0);
 
     $("#statTotal").textContent = cartridges.length;
-    $("#statNS").textContent = nsCount;
-    $("#statNS2").textContent = ns2Count;
     $("#statCost").textContent = "¥" + formatMoney(totalCost);
-
-    // 来源分布（仅显示有记录的来源）
-    const counts = {};
-    for (const c of cartridges) {
-        if (c.source) counts[c.source] = (counts[c.source] || 0) + 1;
+    for (const cat of CATEGORIES) {
+        const el = $(`#statCat-${cat.class}`);
+        if (el) el.textContent = counts[cat.value] || 0;
     }
-    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+    // 来源分布（仅显示有记录的来源）——与分类计数共用一次遍历
+    const sourceCounts = {};
+    for (const c of cartridges) {
+        if (c.source) sourceCounts[c.source] = (sourceCounts[c.source] || 0) + 1;
+    }
+    const entries = Object.entries(sourceCounts).sort((a, b) => b[1] - a[1]);
     statsBar.innerHTML = entries.length
         ? "来源分布：" +
           entries
@@ -1130,6 +1170,7 @@ themeToggle.addEventListener("click", () => {
 syncThemeButton();
 
 // ── Init ───────────────────────────────────────────────────────────────────
+buildCategoryOptions();
 buildSourceOptions();
 syncSourceCustomVisibility();
 loadData();

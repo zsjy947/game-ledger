@@ -18,10 +18,11 @@
     </script>
     <link rel="stylesheet" href="/static/style.css">
     <script>
-        /* 服务端注入：来源预设选项与版本号（前后端单一数据源） */
+        /* 服务端注入：来源预设/分类配置/版本号（前后端单一数据源） */
         window.__APP__ = {
             version: "{{ version }}",
-            sourcePresets: {{ source_presets | tojson }}
+            sourcePresets: {{ source_presets | tojson }},
+            categories: {{ categories | tojson }}
         };
     </script>
 </head>
@@ -57,11 +58,7 @@
                 <button id="filterToggle" class="btn btn-outline" type="button" aria-expanded="false">筛选</button>
             </div>
             <div class="filter-panel" id="filterPanel">
-                <select id="categoryFilter" aria-label="分类筛选">
-                    <option value="">全部分类</option>
-                    <option value="NS">NS</option>
-                    <option value="NS2">NS2</option>
-                </select>
+                <select id="categoryFilter" aria-label="分类筛选"></select>
                 <select id="sourceFilter" aria-label="来源筛选">
                     <option value="">全部来源</option>
                 </select>
@@ -80,19 +77,11 @@
             </div>
         </div>
 
-        <!-- 统计卡片 -->
+        <!-- 统计卡片：总记录 + 各分类（JS 按 __APP__.categories 动态生成）+ 总花费 -->
         <div class="stat-cards" id="statCards">
             <div class="stat-card">
                 <span class="stat-label">总记录</span>
                 <span class="stat-value" id="statTotal">-</span>
-            </div>
-            <div class="stat-card accent-ns">
-                <span class="stat-label">NS 卡带</span>
-                <span class="stat-value" id="statNS">-</span>
-            </div>
-            <div class="stat-card accent-ns2">
-                <span class="stat-label">NS2 卡带</span>
-                <span class="stat-value" id="statNS2">-</span>
             </div>
             <div class="stat-card accent-cost">
                 <span class="stat-label">总花费</span>
@@ -142,11 +131,7 @@
                 <input type="hidden" id="editId">
                 <div class="form-group">
                     <label for="formCategory">分类 <span class="required">*</span></label>
-                    <select id="formCategory" required>
-                        <option value="">请选择分类</option>
-                        <option value="NS">NS</option>
-                        <option value="NS2">NS2</option>
-                    </select>
+                    <select id="formCategory" required></select>
                 </div>
                 <div class="form-group suggest-wrapper">
                     <label for="formName">名称 <span class="required">*</span> <span class="label-hint">（输入名称可联想已有记录与内置游戏库）</span></label>

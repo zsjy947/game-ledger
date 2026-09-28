@@ -27,7 +27,9 @@ OUT_DIR = PROJECT_ROOT / "android" / "app" / "src" / "main" / "assets" / "www"
 def prepare() -> None:
     template_text = (PACKAGE_DIR / "templates" / "index.html").read_text(encoding="utf-8")
     html_text = Template(template_text).render(
-        version=__version__, source_presets=records.SOURCE_PRESETS
+        version=__version__,
+        source_presets=records.SOURCE_PRESETS,
+        categories=records.CATEGORIES,
     )
     # file:// 下无法使用 /static/ 绝对路径，改为相对路径
     html_text = html_text.replace("/static/", "")

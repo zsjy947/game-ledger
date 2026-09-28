@@ -9,7 +9,15 @@ import io
 import math
 import re
 
-VALID_CATEGORIES = ("NS", "NS2")
+# 收藏分类配置：单一数据源——校验、模板注入、前端下拉/配色全部由此驱动。
+# 新增平台只需在此追加（数据库层面 v6 起已无 CHECK 约束）。
+CATEGORIES = (
+    {"value": "NS", "label": "NS 卡带", "class": "ns"},
+    {"value": "NS2", "label": "NS2 卡带", "class": "ns2"},
+    {"value": "PS4", "label": "PS4 光盘", "class": "ps4"},
+    {"value": "PS5", "label": "PS5 光盘", "class": "ps5"},
+)
+VALID_CATEGORIES = tuple(c["value"] for c in CATEGORIES)
 
 # 来源预设选项（前端下拉框以此为准，选择「其他」时可自由填写）
 SOURCE_PRESETS = ("拼多多福袋", "拼多多V3", "支付宝刷券")
