@@ -29,6 +29,25 @@
 
 > 无需命令行；若想手动运行：`python run.py`（浏览器模式，便于开发调试）。
 
+## 安卓构建与签名密钥（android 分支）
+
+安卓版是一个 WebView 壳应用（详见 `android/README.md`），与桌面版共用同一套前端。
+构建前需准备 `.android-build/` 工具链（JDK 17 + Build-Tools 34 + Platform 34，
+下载地址见 `android/README.md`），并先生成发布签名密钥：
+
+```bat
+android\build_apk.bat --init-keystore
+```
+
+该命令会在仓库根创建 `keystore/` 文件夹（`game-ledger-release.keystore` +
+记录随机强密码的 `keystore.properties`），之后正常执行 `android\build_apk.bat`
+即可产出 `android\output\GameLedger.apk`（versionName 自动取 `__version__`）。
+
+> **`keystore/` 文件夹被 gitignore、绝不能删除**——APK 必须用同一密钥签名才能
+> 覆盖安装升级；密钥丢失后只能卸载重装，应用内数据（应用私有 SQLite）会全部丢失。
+> 建议把整个 `keystore/` 文件夹另行完整备份（密码盘 / 加密压缩包等）。
+> CSV 导出是安卓端唯一的备份手段，重要数据请定期导出。
+
 ## 项目结构
 
 ```
