@@ -7,8 +7,8 @@ title Build GameLedger
 
 set "VENV_PY=%~dp0.venv\Scripts\python.exe"
 if not exist "%VENV_PY%" (
-    echo [TIP] Please run the app once first (double-click start.bat first)
-    echo       so the virtual environment gets initialized, then build again.
+    echo [TIP] Please run the app once first ^(double-click start.bat first^)
+    echo        so the virtual environment gets initialized, then build again.
     pause
     exit /b 1
 )
