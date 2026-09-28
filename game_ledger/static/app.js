@@ -489,10 +489,12 @@ function renderStats() {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+/** HTML 转义：& < > " 都处理——esc 的结果既用于文本节点也用于双引号属性
+ * （title="别名：..." 等），引号不转义会被 CSV 导入的数据逃逸出属性。 */
 function esc(str) {
     const div = document.createElement("div");
     div.textContent = str;
-    return div.innerHTML;
+    return div.innerHTML.replace(/"/g, "&quot;");
 }
 
 function formatPrice(p) {
