@@ -1,38 +1,30 @@
 {
   "data": {
     "categoryGridRetrieve": {
-      "products": {
-        "total": 2,
-        "products": [
-          {
-            "id": "EP9000-PPSA03415_00-GOWRAGNAROK00001",
-            "name": "戰神：諸神黃昏",
-            "shortName": "",
-            "description": "奎托斯和阿特柔斯踏上尋找真相的旅程，走遍九界迎接諸神黃昏。",
-            "providerName": "Sony Interactive Entertainment",
-            "releaseDate": "2022-11-09T00:00:00Z",
-            "genres": [{"name": "動作"}, {"name": "冒險"}],
-            "platforms": ["PS5", "PS4"],
-            "keyArt": [{"url": "https://sky-assets.example/gowr-keyart.jpg"}]
-          },
-          {
-            "id": "EP9000-CUSA33219_00-SPIDERMAN2PS5HH1",
-            "name": "Marvel蜘蛛俠2",
-            "shortName": "Spider-Man 2",
-            "description": "彼得·帕克與邁爾斯·莫拉萊斯聯手對抗毒液。",
-            "providerName": "Sony Interactive Entertainment",
-            "releaseDate": "2023-10-20T00:00:00Z",
-            "genres": [{"name": "動作"}],
-            "platforms": ["PS5"],
-            "keyArt": [{"url": "https://sky-assets.example/sm2-keyart.jpg"}]
-          },
-          {
-            "id": "",
-            "name": "缺 id 的坏条目应被跳过",
-            "platforms": ["PS4"]
-          }
-        ]
-      }
+      "pageInfo": {"totalCount": 10000, "offset": 0, "size": 6, "isLast": false},
+      "concepts": [
+        {
+          "id": "10007201",
+          "name": "羊蹄山戰鬼",
+          "media": [
+            {"type": "VIDEO", "role": "PREVIEW", "url": "https://vulcan.dl.playstation.net/preview.mp4"},
+            {"type": "IMAGE", "role": "BACKGROUND_LAYER_ART", "url": "https://image.api.playstation.com/bg.jpg"},
+            {"type": "IMAGE", "role": "GAMEHUB_COVER_ART", "url": "https://image.api.playstation.com/cover.jpg"}
+          ]
+        },
+        {
+          "id": "228748",
+          "name": "ASTRO's PLAYROOM",
+          "media": [{"type": "IMAGE", "role": "MASTER", "url": "https://image.api.playstation.com/master.jpg"}]
+        },
+        {
+          "id": "",
+          "name": "缺 id 的坏条目应被跳过",
+          "media": []
+        },
+        null,
+        {"id": "999", "name": "  ", "media": []}
+      ]
     }
   }
 }

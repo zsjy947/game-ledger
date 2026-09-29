@@ -1,0 +1,51 @@
+{
+  "data": {
+    "universalSearch": {
+      "searchTerm": "god",
+      "next": "CURSOR_TOKEN_1",
+      "pageInfo": {"totalCount": 128, "offset": 0, "size": 50, "isLast": false},
+      "results": [
+        {
+          "__typename": "Concept",
+          "id": "10012116",
+          "name": "Hammer of the Gods",
+          "media": [{"type": "IMAGE", "role": "GAMEHUB_COVER_ART", "url": "https://img/hotg.png"}]
+        },
+        {
+          "__typename": "Product",
+          "id": "HP9000-CUSA07413_00-00000000GODOFWAR",
+          "name": "God of War (韓文, 英文, 繁體中文)",
+          "localizedStoreDisplayClassification": "正式版遊戲",
+          "platforms": ["PS4"],
+          "media": [{"type": "IMAGE", "role": "GAMEHUB_COVER_ART", "url": "https://img/gow.png"}]
+        },
+        {
+          "__typename": "Product",
+          "id": "HP9000-CUSA07413_00-GODOFWARDDE00000",
+          "name": "God of War 豪華下載版 (韓文, 英文, 繁體中文)",
+          "localizedStoreDisplayClassification": "高級版",
+          "platforms": ["PS4"],
+          "media": [{"type": "IMAGE", "role": "MASTER", "url": "https://img/gowdde.png"}]
+        },
+        {
+          "__typename": "Product",
+          "id": "HP9000-CUSA07413_00-DLC0000000000000",
+          "name": "God of War 服裝 DLC",
+          "localizedStoreDisplayClassification": "追加內容",
+          "platforms": ["PS4"],
+          "media": []
+        },
+        {
+          "__typename": "Product",
+          "id": "HP9000-PPSA26344_00-GHOST2CE00000000",
+          "name": "《羊蹄山戰鬼》完全版 (簡體中文, 韓文, 英文, 繁體中文, 日文)",
+          "localizedStoreDisplayClassification": "正式版遊戲",
+          "platforms": ["PS5"],
+          "media": [{"type": "IMAGE", "role": "KEY_ART", "url": "https://img/yotei.jpg"}]
+        },
+        null,
+        {"__typename": "Concept", "id": "", "name": "坏条目", "media": []}
+      ]
+    }
+  }
+}
