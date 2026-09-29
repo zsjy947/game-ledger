@@ -211,6 +211,12 @@ public class StorageBridge {
         }
     }
 
+    private static void writeFile(File file, byte[] bytes) throws IOException {
+        try (FileOutputStream out = new FileOutputStream(file)) {
+            out.write(bytes);
+        }
+    }
+
     // ── 路由分发 ─────────────────────────────────────────────────────────────
 
     private static final class Response {
@@ -751,7 +757,7 @@ public class StorageBridge {
         double price;
         String createdAt, updatedAt;
 
-        static Parsed fromExisting(JSONObject existing) throws JSONException {
+        static Parsed fromExisting(JSONObject existing) {
             Parsed p = new Parsed();
             if (existing != null) {
                 p.category = existing.optString("category", "");
@@ -865,6 +871,9 @@ public class StorageBridge {
         Helper(Context context) {
             super(context, DB_NAME, null, SCHEMA_VERSION);
             this.context = context;
+            // WAL 对齐桌面端 database.py 的 PRAGMA journal_mode=WAL；
+            // 这是 SQLiteOpenHelper 的方法，须在打开数据库前调用
+            setWriteAheadLoggingEnabled(true);
         }
 
         Context getContext() {
@@ -875,7 +884,6 @@ public class StorageBridge {
         public void onConfigure(SQLiteDatabase db) {
             super.onConfigure(db);
             db.setForeignKeyConstraintsEnabled(true);
-            db.setWriteAheadLoggingEnabled(true);
         }
 
         @Override
