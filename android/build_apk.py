@@ -91,7 +91,8 @@ def init_keystore(jdk) -> None:
             keytool, "-genkeypair", "-keystore", KEYSTORE_FILE,
             "-alias", "gameledger", "-keyalg", "RSA", "-keysize", "2048",
             "-validity", "10000",
-            "-storepass", f"pass:{store_pass}", "-keypass", f"pass:{store_pass}",
+            # keytool 用原始密码；「pass:」前缀是 apksigner 的参数约定，不能混用
+            "-storepass", store_pass, "-keypass", store_pass,
             "-dname", "CN=GameLedger",
         ],
         desc="keytool 生成 keystore",
