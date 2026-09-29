@@ -16,6 +16,7 @@
     android\\output\\GameLedger.apk
 """
 
+import os
 import shutil
 import subprocess
 import sys
@@ -38,30 +39,76 @@ TARGET_SDK = 34
 
 
 def find_toolchain():
-    """定位 JDK、build-tools 与 platform android.jar。"""
+    """定位 JDK、build-tools 与 platform android.jar。
+
+    优先系统级共享工具链（环境变量 JAVA_HOME + ANDROID_HOME，一次配置
+    全机项目共用），缺失时回退项目内 .android-build/ 目录（准备方式见
+    android/README.md）。
+    """
     jdk = None
-    for cand in sorted(TOOLS_DIR.glob("jdk-17*")) + sorted(TOOLS_DIR.glob("jdk-*")):
+    java_home = os.environ.get("JAVA_HOME")
+    if java_home:
+        cand = Path(java_home)
         if (cand / "bin" / "javac.exe").exists() or (cand / "bin" / "javac").exists():
             jdk = cand
-            break
-    if jdk is None:
-        raise SystemExit("未找到 JDK：请按 android/README.md 先准备 .android-build/jdk-17*")
 
     bt = None
-    for cand in sorted(TOOLS_DIR.glob("android-*")):
-        if (cand / "aapt2.exe").exists() or (cand / "aapt2").exists():
-            bt = cand
-            break
-    if bt is None:
-        raise SystemExit("未找到 Android build-tools：请按 android/README.md 准备 .android-build/android-*")
-
     android_jar = None
-    for cand in sorted(TOOLS_DIR.glob("android-*")):
-        if (cand / "android.jar").exists():
-            android_jar = cand / "android.jar"
-            break
+    sdk_home = os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT")
+    if sdk_home:
+        sdk = Path(sdk_home)
+        bt_root, plat_root = sdk / "build-tools", sdk / "platforms"
+        if bt_root.is_dir():
+            dirs = [
+                d for d in sorted(bt_root.iterdir())
+                if d.is_dir() and ((d / "aapt2.exe").exists() or (d / "aapt2").exists())
+            ]
+            bt = next((d for d in dirs if d.name.startswith(str(TARGET_SDK))), None)
+            if bt is None and dirs:
+                bt = dirs[-1]
+        if plat_root.is_dir():
+            prefer = plat_root / f"android-{TARGET_SDK}" / "android.jar"
+            if prefer.exists():
+                android_jar = prefer
+            else:
+                jars = sorted(
+                    plat_root.glob("android-*/android.jar"),
+                    key=lambda p: int(p.parent.name.replace("android-", "") or 0),
+                )
+                if jars:
+                    android_jar = jars[-1]
+
+    if jdk is None:
+        for cand in sorted(TOOLS_DIR.glob("jdk-17*")) + sorted(TOOLS_DIR.glob("jdk-*")):
+            if (cand / "bin" / "javac.exe").exists() or (cand / "bin" / "javac").exists():
+                jdk = cand
+                break
+    if bt is None:
+        for cand in sorted(TOOLS_DIR.glob("android-*")):
+            if (cand / "aapt2.exe").exists() or (cand / "aapt2").exists():
+                bt = cand
+                break
     if android_jar is None:
-        raise SystemExit("未找到 platform android.jar：请按 android/README.md 准备")
+        for cand in sorted(TOOLS_DIR.glob("android-*")):
+            if (cand / "android.jar").exists():
+                android_jar = cand / "android.jar"
+                break
+
+    if jdk is None:
+        raise SystemExit(
+            "未找到 JDK：推荐系统级安装并设置 JAVA_HOME（见 android/README.md），"
+            "或按该文档准备项目内 .android-build/jdk-17*"
+        )
+    if bt is None:
+        raise SystemExit(
+            "未找到 Android build-tools：推荐系统级 SDK 并设置 ANDROID_HOME"
+            "（含 build-tools;34.0.0），或按 android/README.md 准备 .android-build/android-*"
+        )
+    if android_jar is None:
+        raise SystemExit(
+            "未找到 platform android.jar：请在 ANDROID_HOME 下安装 platforms;android-34，"
+            "或按 android/README.md 准备"
+        )
 
     return jdk, bt, android_jar
 
@@ -176,10 +223,9 @@ def add_dex_to_apk(base_apk: Path, dex: Path, out_apk: Path) -> None:
 
 
 def main() -> None:
-    import os
-
     jdk, bt, android_jar = find_toolchain()
     env = {**os.environ, "JAVA_HOME": str(jdk)}
+    print(f"工具链：JDK={jdk.name} | build-tools={bt.name} | platform={android_jar.parent.name}")
 
     if "--init-keystore" in sys.argv:
         init_keystore(jdk)

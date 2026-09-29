@@ -28,7 +28,26 @@ CSV 导入走系统文件选择器（`onShowFileChooser`）。
 5. 产物：`android\output\GameLedger.apk`，传到手机安装
    （需允许「安装未知应用」；签名证书固定，后续版本可直接覆盖安装）。
 
-## 工具链准备（仅首次）
+## 工具链准备（仅首次，两种方式任选）
+
+**方式一（推荐）：系统级安装，全机项目共用**
+
+1. 安装 JDK 17（如 Eclipse Temurin），设用户环境变量 `JAVA_HOME` 指向其根目录；
+2. 准备 Android SDK：下载 [commandline-tools](https://dl.google.com/android/repository/commandlinetools-win-11076708_latest.zip)
+   解压到固定目录（如 `D:\Tools\android-sdk`，注意命令行工具需放入
+   `cmdline-tools\latest\` 子目录），再安装两个组件：
+   `sdkmanager "build-tools;34.0.0" "platforms;android-34"`；
+3. 设用户环境变量 `ANDROID_HOME` 指向 SDK 根目录。完成——
+   `build_apk.py` 优先从 `JAVA_HOME` / `ANDROID_HOME` 定位工具链，
+   所有项目共享同一份，`sdkmanager` 统一升级。
+
+（国内网络 `dl.google.com` 不可达时，组件 zip 可从腾讯云镜像
+`https://mirrors.cloud.tencent.com/AndroidSDK/` 手动下载解压：
+`build-tools_r34-windows.zip` → `build-tools\34.0.0`，
+`platform-34-ext7_r03.zip` → `platforms\android-34`，
+并在 `licenses\` 写入标准许可哈希后 `sdkmanager --list_installed` 应能识别。）
+
+**方式二：项目内工具链（无环境变量时的回退）**
 
 下载并解压到项目根目录 `.android-build\`（脚本自动识别目录名）：
 

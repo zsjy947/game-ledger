@@ -32,8 +32,10 @@
 ## 安卓构建与签名密钥（android 分支）
 
 安卓版是一个 WebView 壳应用（详见 `android/README.md`），与桌面版共用同一套前端。
-构建前需准备 `.android-build/` 工具链（JDK 17 + Build-Tools 34 + Platform 34，
-下载地址见 `android/README.md`），并先生成发布签名密钥：
+构建前需准备安卓工具链（JDK 17 + Build-Tools 34 + Platform 34）——推荐系统级
+安装并设置 `JAVA_HOME` / `ANDROID_HOME` 环境变量（全机项目共用，详见
+`android/README.md`；无环境变量时脚本回退到项目内 `.android-build/`），
+并先生成发布签名密钥：
 
 ```bat
 android\build_apk.bat --init-keystore
