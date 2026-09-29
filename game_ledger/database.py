@@ -66,8 +66,14 @@ def _relax_category_constraint(conn) -> None:
     records.VALID_CATEGORIES 在写入前校验（DB 层不再关心，新增平台无需迁移）。
     搬运保留 id 与全部列，price_history 经外键继续有效；连接上先关外键，
     避免 DROP 父表触发约束（executescript 前无打开的事务，PRAGMA 生效）。
+    先清掉可能残留的半成品 cartridges_v6（上次迁移中断留下的），保证
+    可重入——对齐安卓侧 StorageBridge 的同款修法；极端情况下 cartridges
+    主表若已不存在，下方 INSERT...SELECT 会失败，属可接受（迁移窗口极窄，
+    且迁移前已有 backup-v5 兜底）。
     """
     conn.execute("PRAGMA foreign_keys = OFF")
+    # 防半成品：清掉上次中断迁移可能残留的 cartridges_v6 再重建
+    conn.execute("DROP TABLE IF EXISTS cartridges_v6")
     conn.executescript(
         """
         CREATE TABLE cartridges_v6 (

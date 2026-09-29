@@ -44,6 +44,21 @@ def test_parse_products_tolerates_bad_payload():
     assert fps.parse_products({"data": {"categoryGridRetrieve": None}}) == []
 
 
+def test_parse_products_skips_null_elements():
+    """目录里混入 null 条目/genres、platforms 混入 null 元素时不影响正常解析。"""
+    payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    products = payload["data"]["categoryGridRetrieve"]["products"]["products"]
+    products.append(None)
+    products[0]["genres"] = [{"name": "動作"}, None, {"name": "冒險"}, None]
+    products[0]["platforms"] = ["PS5", None, "PS4"]
+
+    records = fps.parse_products(payload)
+    assert len(records) == 2  # null 条目被跳过，正常条目不受影响
+    assert records[0]["g"] == "動作、冒險"
+    assert records[0]["pl"] == "PS5"  # null 平台元素不影响标签
+    assert records[1]["pl"] == "PS5"
+
+
 def test_clean_id_charset_and_length():
     assert fps._clean_id("EP9000-PPSA03415_00-GOW") == "EP9000-PPSA03415_00-GOW"
     assert fps._clean_id("含中文与空格 id") == "id"

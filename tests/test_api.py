@@ -102,6 +102,24 @@ def test_update_partial_fields(client):
     assert resp.get_json()["data"]["source"] == ""
 
 
+def test_update_ignores_client_timestamps(client):
+    """PUT 携带合法 updated_at/created_at 也返回 200：时间戳由服务端管理。"""
+    record = client.post(
+        "/api/cartridges", json={"category": "NS", "name": "时间戳", "price": 1}
+    ).get_json()["data"]
+    resp = client.put(
+        f"/api/cartridges/{record['id']}",
+        json={"name": "改名", "updated_at": "2030-01-01 00:00:00"},
+    )
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["success"] is True
+    # 返回的是服务器时间，而不是客户端提交的 2030 年
+    assert body["data"]["updated_at"] != "2030-01-01 00:00:00"
+    assert len(body["data"]["updated_at"]) == 19  # SQLite CURRENT_TIMESTAMP 格式
+    assert body["data"]["name"] == "改名"
+
+
 def test_source_filter(client):
     client.post("/api/cartridges", json={"category": "NS", "name": "A", "source": "拼多多福袋"})
     client.post("/api/cartridges", json={"category": "NS", "name": "B", "source": "自定义渠道"})

@@ -379,7 +379,7 @@ function renderTable() {
                 <td class="cover-cell">
                     <div class="cover-thumb${c.cover ? "" : " empty"}">${
                         c.cover
-                            ? `<img loading="lazy" src="${coverUrl(c.cover)}" onerror="if(!coverImgError(this,'${esc(c.cover)}'))this.remove()">`
+                            ? `<img loading="lazy" src="${coverUrl(c.cover)}" onerror="if(!coverImgError(this,'${escJsStr(c.cover)}'))this.remove()">`
                             : ""
                     }</div>
                 </td>
@@ -423,7 +423,7 @@ function renderCards() {
             <div class="card-cover">
                 <div class="cover-thumb${c.cover ? "" : " empty"}">${
                     c.cover
-                        ? `<img loading="lazy" src="${coverUrl(c.cover)}" onerror="if(!coverImgError(this,'${esc(c.cover)}'))this.remove()">`
+                        ? `<img loading="lazy" src="${coverUrl(c.cover)}" onerror="if(!coverImgError(this,'${escJsStr(c.cover)}'))this.remove()">`
                         : ""
                 }</div>
             </div>
@@ -529,12 +529,19 @@ function renderStats() {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-/** HTML 转义：& < > " 都处理——esc 的结果既用于文本节点也用于双引号属性
+/** HTML 转义：& < > " ' 都处理——esc 的结果既用于文本节点也用于双引号属性
  * （title="别名：..." 等），引号不转义会被 CSV 导入的数据逃逸出属性。 */
 function esc(str) {
     const div = document.createElement("div");
     div.textContent = str;
-    return div.innerHTML.replace(/"/g, "&quot;");
+    return div.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+/** 内联 onerror 里的单引号 JS 字符串专用（coverImgError(this,'…')）：
+ * 浏览器先把属性值做 HTML 实体解码再编译 JS，esc 的 &#39; 会解码回 '，
+ * 仍能截断 JS 字符串——必须在 HTML 层之上再做 JS 层转义，让解码后是 \'。 */
+function escJsStr(str) {
+    return esc(str).replace(/\\/g, "&#92;").replace(/&#39;/g, "\\&#39;");
 }
 
 function formatPrice(p) {
@@ -757,7 +764,7 @@ function renderSuggest(gameMatches = []) {
                         : "";
                     return `
                 <div class="suggest-item game-item" data-game="${esc(g.i)}">
-                    <span class="suggest-game-cover"><img loading="lazy" src="${coverUrl(g.i)}" onerror="if(!coverImgError(this,'${esc(g.i)}'))this.remove()"></span>
+                    <span class="suggest-game-cover"><img loading="lazy" src="${coverUrl(g.i)}" onerror="if(!coverImgError(this,'${escJsStr(g.i)}'))this.remove()"></span>
                     <span class="suggest-name">${esc(gameDisplayName(g))}${subHtml}</span>
                     <span class="suggest-existing">${esc(g.p || "")}</span>
                     <span class="suggest-hint">→ 关联</span>

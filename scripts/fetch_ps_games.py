@@ -18,6 +18,7 @@ CATEGORY_ID 仍有效（见下文常量注释）；解析层与网络层分离�
 
 import argparse
 import json
+import os
 import re
 import sys
 import time
@@ -65,8 +66,11 @@ def _clean_id(raw: str) -> str:
 
 
 def platform_tag(platforms: list | None) -> str:
-    """平台列表 → 单一标签：有 PS5 标 PS5，否则有 PS4 标 PS4。"""
-    platforms = platforms or []
+    """平台列表 → 单一标签：有 PS5 标 PS5，否则有 PS4 标 PS4。
+
+    接口偶发在列表里混入 null 元素，先过滤掉非字符串项再判断。
+    """
+    platforms = [p for p in (platforms or []) if isinstance(p, str)]
     if "PS5" in platforms:
         return "PS5"
     if "PS4" in platforms:
@@ -86,6 +90,8 @@ def parse_products(payload: dict) -> list[dict]:
 
     records: list[dict] = []
     for item in products:
+        if not isinstance(item, dict):
+            continue  # 接口偶发返回 null 条目，跳过而不是整体失败
         cid = _clean_id(item.get("id") or "")
         name = (item.get("name") or item.get("shortName") or "").strip()
         if not cid or not name:
@@ -104,7 +110,11 @@ def parse_products(payload: dict) -> list[dict]:
             "p": item.get("providerName") or "",
             "dt": (item.get("releaseDate") or "")[:10],
             "c": cover,
-            "g": "、".join(g.get("name", "") for g in item.get("genres") or [] if g.get("name")),
+            "g": "、".join(
+                (g or {}).get("name", "")
+                for g in item.get("genres") or []
+                if (g or {}).get("name")
+            ),
         }
         pl = platform_tag(item.get("platforms"))
         if pl:
@@ -187,9 +197,12 @@ def merge_into_catalog(ps_records: list[dict], games_json: Path) -> tuple[int, i
 
     merged = ns_records + ps_merged
     games_json.parent.mkdir(parents=True, exist_ok=True)
-    games_json.write_text(
+    # 原子写：先写临时文件再替换，进程中断不会留下半个 games.json
+    tmp_path = games_json.with_suffix(".json.tmp")
+    tmp_path.write_text(
         json.dumps(merged, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
     )
+    os.replace(tmp_path, games_json)
     return len(merged), written
 
 
@@ -230,7 +243,9 @@ def main() -> None:
 
     total, written = merge_into_catalog(records, args.games_json)
     print(f"合并完成：写入 {written} 条 PS 记录，目录总数 {total} → {args.games_json}")
-    if not args.dry_run and args.games_json == (ASSETS_DIR / "games.json"):
+    # resolve() 后比较：测试或命令行传入等价路径（相对/绝对）也能识别为主目录
+    primary_catalog = ASSETS_DIR / "games.json"
+    if not args.dry_run and args.games_json.resolve() == primary_catalog.resolve():
         write_games_js(args.games_json)
         print("已同步 static/games.js；安卓重打包（prepare_assets）自动生效。")
 
