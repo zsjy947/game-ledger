@@ -1,10 +1,11 @@
 /**
- * Switch 卡带价格统计 — 前端交互逻辑
+ * 游戏藏品账本 — 前端交互逻辑
  */
 
 // ── 常量（服务端注入，前后端单一数据源）────────────────────────────────────
 const SOURCE_PRESETS = window.__APP__.sourcePresets || [];
-const CATEGORIES = window.__APP__.categories || []; // [{value,label,class}]
+const CATEGORIES = window.__APP__.categories || []; // [{value,label,class,platform}]
+const PLATFORMS = window.__APP__.platforms || [];   // [{value,label,class}] 顶端统计卡按此汇总
 const SOURCE_CUSTOM = "__custom__";
 const SOURCE_CLASS = {
     "拼多多福袋": "src-fudai",
@@ -366,7 +367,7 @@ function renderTable() {
 
     if (cartridges.length === 0) {
         tableBody.innerHTML =
-            '<tr><td colspan="8" class="empty-state">暂无数据，点击「＋ 新增卡带」开始添加</td></tr>';
+            '<tr><td colspan="8" class="empty-state">暂无数据，点击「＋ 新增」开始添加</td></tr>';
         cardList.innerHTML =
             '<div class="empty-state card-empty">暂无数据，点右下角 ＋ 开始添加</div>';
         return;
@@ -476,21 +477,21 @@ function bindRecordEvents(scope) {
 
 let statCardsBuilt = false;
 
-/** 按分类配置生成统计卡（总记录、各分类、总花费），只建一次。 */
+/** 按大平台配置生成统计卡（总记录、各平台、总花费），只建一次。 */
 function ensureStatCards() {
     if (statCardsBuilt) return;
     statCardsBuilt = true;
     const container = $("#statCards");
     const costCard = container.querySelector(".accent-cost");
-    for (const cat of CATEGORIES) {
+    for (const plat of PLATFORMS) {
         const card = document.createElement("div");
-        card.className = `stat-card accent-${cat.class}`;
+        card.className = `stat-card accent-${plat.class}`;
         const label = document.createElement("span");
         label.className = "stat-label";
-        label.textContent = cat.label;
+        label.textContent = plat.label;
         const value = document.createElement("span");
         value.className = "stat-value";
-        value.id = `statCat-${cat.class}`;
+        value.id = `statPlat-${plat.class}`;
         value.textContent = "0";
         card.append(label, value);
         container.insertBefore(card, costCard);
@@ -506,9 +507,12 @@ function renderStats() {
 
     $("#statTotal").textContent = cartridges.length;
     $("#statCost").textContent = "¥" + formatMoney(totalCost);
-    for (const cat of CATEGORIES) {
-        const el = $(`#statCat-${cat.class}`);
-        if (el) el.textContent = counts[cat.value] || 0;
+    for (const plat of PLATFORMS) {
+        const members = CATEGORIES.filter((c) => c.platform === plat.value).map((c) => c.value);
+        const el = $(`#statPlat-${plat.class}`);
+        if (el) {
+            el.textContent = cartridges.filter((c) => members.includes(c.category)).length;
+        }
     }
 
     // 来源分布（仅显示有记录的来源）——与分类计数共用一次遍历
@@ -569,7 +573,7 @@ function formatDate(d) {
 
 // ── Modal: Add / Edit ──────────────────────────────────────────────────────
 function openAddModal() {
-    modalTitle.textContent = "新增卡带";
+    modalTitle.textContent = "新增";
     cartridgeForm.reset();
     editIdInput.value = "";
     formSourceCustom.value = "";
@@ -586,7 +590,7 @@ function openAddModal() {
 function openEditModal(id) {
     const record = cartridges.find((c) => c.id === id);
     if (!record) return;
-    modalTitle.textContent = "编辑卡带";
+    modalTitle.textContent = "编辑";
     editIdInput.value = record.id;
     formCategory.value = record.category;
     formName.value = record.name;
@@ -806,7 +810,7 @@ function fillFromSuggest(id) {
     selectedGame = record.cover ? GAMES_INDEX[record.cover] || { i: record.cover, t: record.name, d: record.intro || "" } : null;
     introDraft = record.intro || "";
     renderGameChip();
-    modalTitle.textContent = "更新卡带";
+    modalTitle.textContent = "更新";
     submitBtn.textContent = "更新";
     hideSuggest();
 }

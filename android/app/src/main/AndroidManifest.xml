@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.gameledger.app"
-    android:versionCode="1"
-    android:versionName="1.0.0">
+    package="com.gameledger.app">
+    <!-- 版本号由 build_apk.py 经 aapt2 link 的 version-code / version-name 参数注入
+         （单一来源 game_ledger.__version__ 与 VERSION_CODE；manifest 显式属性
+         会覆盖 link 参数，故此处不写） -->
 
     <!-- 未内置封面的在线回退需要网络；拒绝联网权限时仅缺失部分封面 -->
     <uses-permission android:name="android.permission.INTERNET" />

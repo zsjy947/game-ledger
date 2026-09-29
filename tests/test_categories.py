@@ -16,6 +16,16 @@ def test_valid_categories_extended():
         assert cat["class"] == cat["value"].lower()
 
 
+def test_platform_grouping_config():
+    """分类→大平台映射完整：统计卡按 PLATFORMS 汇总依赖此配置。"""
+    platform_values = {p["value"] for p in records.PLATFORMS}
+    for cat in records.CATEGORIES:
+        assert cat["platform"] in platform_values, f"{cat['value']} 缺少有效 platform"
+    for plat in records.PLATFORMS:
+        # 每个大平台至少挂一个分类，避免空平台卡片
+        assert any(c["platform"] == plat["value"] for c in records.CATEGORIES)
+
+
 def test_add_ps4_record(client):
     resp = client.post(
         "/api/cartridges",

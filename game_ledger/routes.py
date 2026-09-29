@@ -28,6 +28,7 @@ def index():
         version=__version__,
         source_presets=records.SOURCE_PRESETS,
         categories=records.CATEGORIES,
+        platforms=records.PLATFORMS,
     )
 
 

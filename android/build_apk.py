@@ -36,6 +36,8 @@ KEYSTORE_PROPS = KEYSTORE_DIR / "keystore.properties"
 
 MIN_SDK = 24
 TARGET_SDK = 34
+# versionCode 随版本递增（v1.0.0=1）；覆盖安装要求只增不减
+VERSION_CODE = 2
 
 
 def find_toolchain():
@@ -303,7 +305,7 @@ def main() -> None:
             "-A", APP_DIR / "assets",
             f"--min-sdk-version", str(MIN_SDK),
             f"--target-sdk-version", str(TARGET_SDK),
-            "--version-code", "1",
+            "--version-code", str(VERSION_CODE),
             f"--version-name", version_name,
             "--auto-add-overlay",
             res_zip,

@@ -30,6 +30,7 @@ def prepare() -> None:
         version=__version__,
         source_presets=records.SOURCE_PRESETS,
         categories=records.CATEGORIES,
+        platforms=records.PLATFORMS,
     )
     # file:// 下无法使用 /static/ 绝对路径，改为相对路径
     html_text = html_text.replace("/static/", "")

@@ -106,11 +106,15 @@ window.requestAnimationFrame = (fn) => setTimeout(fn, 0);
 window.__APP__ = {
   version: "1.0.0-test",
   sourcePresets: ["拼多多福袋", "拼多多V3", "支付宝刷券"],
+  platforms: [
+    { value: "nintendo", label: "任天堂", class: "nintendo" },
+    { value: "playstation", label: "PlayStation", class: "playstation" },
+  ],
   categories: [
-    { value: "NS", label: "NS 卡带", class: "ns" },
-    { value: "NS2", label: "NS2 卡带", class: "ns2" },
-    { value: "PS4", label: "PS4 光盘", class: "ps4" },
-    { value: "PS5", label: "PS5 光盘", class: "ps5" },
+    { value: "NS", label: "NS", class: "ns", platform: "nintendo" },
+    { value: "NS2", label: "NS2", class: "ns2", platform: "nintendo" },
+    { value: "PS4", label: "PS4", class: "ps4", platform: "playstation" },
+    { value: "PS5", label: "PS5", class: "ps5", platform: "playstation" },
   ],
 };
 
@@ -130,11 +134,15 @@ await sleep(300); // 等 loadData 渲染
 
 check("NATIVE_MODE 生效（卡片渲染）", $("#cardList").textContent.includes("塞尔达传说"));
 check("分类下拉动态生成（含 PS5）", [...$("#formCategory").options].some((o) => o.value === "PS5"));
-check("统计卡动态生成（PS4 卡片存在）", $("#statCat-ps4") !== null);
+check("统计卡按大平台生成（任天堂/PlayStation）", $("#statPlat-nintendo") !== null && $("#statPlat-playstation") !== null);
+check("统计卡不含逐分类卡（statCat 已移除）", $("#statCat-ns") === null);
+check("界面无「卡带」字眼（按钮/占位/空态）", !window.document.body.textContent.includes("卡带"));
 check("游戏库已加载（19579 款）", Array.isArray(window.__GAMES__) && window.__GAMES__.length > 10000);
 check("游戏搜索可用（索引已构建）", typeof window.searchGames === "function" && window.searchGames("塞尔达").length > 0);
 check("统计卡：总数 = 2", $("#statTotal").textContent === "2");
 check("统计卡：总花费 544.50", $("#statCost").textContent.includes("544.50"));
+check("统计卡：任天堂 = 2（NS+NS2 汇总）", $("#statPlat-nintendo").textContent === "2");
+check("统计卡：PlayStation = 0", $("#statPlat-playstation").textContent === "0");
 
 // 模拟新增：填表 → 提交
 $("#fabAdd").dispatchEvent(new window.Event("click"));

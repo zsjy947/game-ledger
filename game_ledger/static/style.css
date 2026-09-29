@@ -25,6 +25,8 @@
     --ns2-color: #4a90d9;
     --ps4-color: #3f8ac9;
     --ps5-color: #7aa9e0;
+    --nintendo-color: #e60012;
+    --playstation-color: #0070d1;
     --src-fudai: #ff9668;
     --src-v3: #6fb1e8;
     --radius: 8px;
@@ -55,6 +57,8 @@
     --ns2-color: #2f6fb5;
     --ps4-color: #2f6fb5;
     --ps5-color: #5d8fc4;
+    --nintendo-color: #d32627;
+    --playstation-color: #0058b8;
     --src-fudai: #b3552a;
     --src-v3: #2f6fb5;
     --shadow: 0 4px 24px rgba(140, 60, 60, 0.14);
@@ -307,6 +311,12 @@ header {
 }
 .stat-card.accent-ps5::before {
     background: var(--ps5-color);
+}
+.stat-card.accent-nintendo::before {
+    background: var(--nintendo-color);
+}
+.stat-card.accent-playstation::before {
+    background: var(--playstation-color);
 }
 .stat-card.accent-cost::before {
     background: var(--success);

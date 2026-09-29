@@ -9,13 +9,18 @@ import io
 import math
 import re
 
-# 收藏分类配置：单一数据源——校验、模板注入、前端下拉/配色全部由此驱动。
-# 新增平台只需在此追加（数据库层面 v6 起已无 CHECK 约束）。
+# 收藏分类与大平台配置：单一数据源——校验、模板注入、前端下拉/配色/统计卡
+# 全部由此驱动。新增平台只需在此追加（数据库层面 v6 起已无 CHECK 约束）。
+# platform 指向 PLATFORMS[].value，用于顶端统计卡按大平台汇总。
+PLATFORMS = (
+    {"value": "nintendo", "label": "任天堂", "class": "nintendo"},
+    {"value": "playstation", "label": "PlayStation", "class": "playstation"},
+)
 CATEGORIES = (
-    {"value": "NS", "label": "NS 卡带", "class": "ns"},
-    {"value": "NS2", "label": "NS2 卡带", "class": "ns2"},
-    {"value": "PS4", "label": "PS4 光盘", "class": "ps4"},
-    {"value": "PS5", "label": "PS5 光盘", "class": "ps5"},
+    {"value": "NS", "label": "NS", "class": "ns", "platform": "nintendo"},
+    {"value": "NS2", "label": "NS2", "class": "ns2", "platform": "nintendo"},
+    {"value": "PS4", "label": "PS4", "class": "ps4", "platform": "playstation"},
+    {"value": "PS5", "label": "PS5", "class": "ps5", "platform": "playstation"},
 )
 VALID_CATEGORIES = tuple(c["value"] for c in CATEGORIES)
 

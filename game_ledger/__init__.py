@@ -5,7 +5,7 @@ from werkzeug.exceptions import HTTPException
 
 from . import config, database
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 
 def create_app() -> Flask:
