@@ -47,7 +47,7 @@ def parse_payload(body: dict, existing: dict | None = None) -> tuple[dict | None
     price = body["price"] if "price" in body else src.get("price")
 
     if category not in VALID_CATEGORIES:
-        return None, "分类必须为 NS 或 NS2"
+        return None, "分类必须为 " + "/".join(VALID_CATEGORIES)
     if not name:
         return None, "名称不能为空"
     if len(source) > MAX_SOURCE_LENGTH:

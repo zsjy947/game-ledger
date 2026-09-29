@@ -123,8 +123,9 @@ def update_cartridge(cartridge_id: int):
     fields, error = records.parse_payload(body, existing)
     if error:
         return jsonify({"success": False, "message": error}), 400
-    # created_at/updated_at 由服务端管理，普通更新不接受客户端值
+    # created_at/updated_at 均由服务端管理，普通更新不接受客户端值
     fields.pop("created_at", None)
+    fields.pop("updated_at", None)
     record = database.update(cartridge_id, **fields)
     return jsonify({"success": True, "data": record})
 

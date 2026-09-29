@@ -727,7 +727,7 @@ public class StorageBridge {
             p.alias = body.has("alias") ? body.optString("alias").trim()
                     : orEmpty(s.alias);
 
-            if (p.category == null || p.category.isEmpty()) return err("分类必须为 NS 或 NS2");
+            if (p.category == null || p.category.isEmpty()) return err("分类必须为 NS、NS2、PS4 或 PS5");
             boolean valid = false;
             for (String c : VALID_CATEGORIES) {
                 if (c.equals(p.category)) {
@@ -735,7 +735,7 @@ public class StorageBridge {
                     break;
                 }
             }
-            if (!valid) return err("分类必须为 NS 或 NS2");
+            if (!valid) return err("分类必须为 NS、NS2、PS4 或 PS5");
             if (p.name == null || p.name.isEmpty()) return err("名称不能为空");
             if (p.source.length() > MAX_SOURCE_LENGTH) {
                 return err("来源不能超过 " + MAX_SOURCE_LENGTH + " 个字符");
