@@ -1,9 +1,11 @@
 /**
- * Switch 卡带价格统计 — 前端交互逻辑
+ * 游戏藏品账本 — 前端交互逻辑
  */
 
 // ── 常量（服务端注入，前后端单一数据源）────────────────────────────────────
 const SOURCE_PRESETS = window.__APP__.sourcePresets || [];
+const CATEGORIES = window.__APP__.categories || []; // [{value,label,class,platform}]
+const PLATFORMS = window.__APP__.platforms || [];   // [{value,label,class}] 顶端统计卡按此汇总
 const SOURCE_CUSTOM = "__custom__";
 const SOURCE_CLASS = {
     "拼多多福袋": "src-fudai",
@@ -11,31 +13,64 @@ const SOURCE_CLASS = {
     "支付宝刷券": "src-zfb",
 };
 
-// 内置游戏库：从 /api/games/catalog 单源加载（服务端内存直出，不再随包
-// 携带同内容的静态 games.js——那是安卓分支专用契约，见 fetch_games.py）
+// 安卓壳（file:// 协议）下走原生存储桥；?native=1 供浏览器模拟测试
+const NATIVE_MODE =
+    location.protocol === "file:" ||
+    new URLSearchParams(location.search).has("native");
+
+// 内置游戏库：桌面端从 /api/games/catalog 加载（服务端内存直出）；
+// 安卓壳由打包期生成的 games.js 提供（window.__GAMES__，见 android/prepare_assets.py）
 let GAMES = [];
 const GAMES_INDEX = {};
 let GAMES_SEARCH = [];
-const gamesReady = fetch("/api/games/catalog")
-    .then((res) => (res.ok ? res.json() : { data: [] }))
-    .then((result) => {
-        GAMES = Array.isArray(result.data) ? result.data : [];
-        for (const g of GAMES) GAMES_INDEX[g.i] = g;
-        // 预归一化搜索字段（约 2 万款 × 若干字段，避免每次键入重复正则）
-        GAMES_SEARCH = GAMES.map((g) => {
-            const fields = [g.t];
-            if (g.zh) fields.push(g.zh);
-            if (g.zhs) fields.push(g.zhs);
-            if (g.zs) fields.push(...g.zs);
-            return { g, fields: fields.map(normText) };
-        });
-    })
-    .catch(() => {}); // 加载失败时游戏库功能降级为空，记录功能不受影响
 
-/** 封面地址：桌面端走 /cover/<id>（内置资源→缓存→在线）；安卓分支覆盖此函数。 */
-function coverUrl(gameId) {
-    return `/cover/${encodeURIComponent(gameId)}`;
+function buildGamesIndex() {
+    for (const g of GAMES) GAMES_INDEX[g.i] = g;
+    // 预归一化搜索字段（约 2 万款 × 若干字段，避免每次键入重复正则）
+    GAMES_SEARCH = GAMES.map((g) => {
+        const fields = [g.t];
+        if (g.zh) fields.push(g.zh);
+        if (g.zhs) fields.push(g.zhs);
+        if (g.zs) fields.push(...g.zs);
+        return { g, fields: fields.map(normText) };
+    });
 }
+
+// 微任务里初始化：buildGamesIndex 依赖文件后部定义的 normText
+const gamesReady = NATIVE_MODE
+    ? Promise.resolve().then(() => {
+          GAMES = Array.isArray(window.__GAMES__) ? window.__GAMES__ : [];
+          buildGamesIndex();
+      })
+    : fetch("/api/games/catalog")
+          .then((res) => (res.ok ? res.json() : { data: [] }))
+          .then((result) => {
+              GAMES = Array.isArray(result.data) ? result.data : [];
+              buildGamesIndex();
+          })
+          .catch(() => {}); // 加载失败时游戏库功能降级为空，记录功能不受影响
+
+/** 封面地址：桌面端走 /cover/<id>（内置资源→缓存→在线）；安卓端用内置资产封面。 */
+function coverUrl(gameId) {
+    return NATIVE_MODE
+        ? `covers/${encodeURIComponent(gameId)}.jpg`
+        : `/cover/${encodeURIComponent(gameId)}`;
+}
+
+/**
+ * 封面加载失败的回退链：安卓壳内置封面缺失时切换到在线官方地址；
+ * 在线也失败（或非安卓环境）返回 false，由调用方移除/隐藏元素。
+ */
+function coverImgError(img, gameId) {
+    const game = gameId ? GAMES_INDEX[gameId] : null;
+    if (NATIVE_MODE && game && game.c && img.dataset.onlineFallback !== "1") {
+        img.dataset.onlineFallback = "1";
+        img.src = game.c;
+        return true;
+    }
+    return false;
+}
+window.coverImgError = coverImgError; // 供内联 onerror 调用
 
 // ── State ──────────────────────────────────────────────────────────────────
 let cartridges = [];
@@ -52,10 +87,15 @@ let detailRecord = null; // 详情弹窗当前记录
 // ── DOM refs ───────────────────────────────────────────────────────────────
 const $ = (sel) => document.querySelector(sel);
 const tableBody = $("#tableBody");
+const cardList = $("#cardList");
 const statsBar = $("#statsBar");
 const searchInput = $("#searchInput");
 const categoryFilter = $("#categoryFilter");
 const sourceFilter = $("#sourceFilter");
+const filterToggle = $("#filterToggle");
+const filterPanel = $("#filterPanel");
+const mobileSort = $("#mobileSort");
+const fabAdd = $("#fabAdd");
 const modalOverlay = $("#modalOverlay");
 const modalTitle = $("#modalTitle");
 const cartridgeForm = $("#cartridgeForm");
@@ -79,6 +119,19 @@ const gameChipMeta = $("#gameChipMeta");
 const gameChipCover = $("#gameChipCover");
 
 // ── 来源选项 ───────────────────────────────────────────────────────────────
+/** 分类选项：筛选与表单两处下拉共用 __APP__.categories 配置。 */
+function buildCategoryOptions() {
+    for (const select of [categoryFilter, formCategory]) {
+        select.innerHTML = "";
+        select.appendChild(
+            new Option(select === formCategory ? "请选择分类" : "全部分类", "")
+        );
+        for (const cat of CATEGORIES) {
+            select.appendChild(new Option(cat.value, cat.value));
+        }
+    }
+}
+
 function buildSourceOptions() {
     formSource.innerHTML = "";
     formSource.appendChild(new Option("未指定", ""));
@@ -213,6 +266,7 @@ function clearGame() {
 
 // ── API helpers ────────────────────────────────────────────────────────────
 async function api(path, options = {}) {
+    if (NATIVE_MODE) return nativeApi(path, options);
     // 非 JSON 响应（如 500 的 HTML 错误页）或网络失败统一降级，
     // 调用方按 result.success 分支即可
     try {
@@ -224,6 +278,42 @@ async function api(path, options = {}) {
     } catch {
         return { success: false, message: "网络错误，请重试" };
     }
+}
+
+/**
+ * 安卓壳：REST 语义直连 StorageBridge（SQLite）。
+ * 桥同步返回 {"status", "body"}，这里包装成与 fetch 一致的 Promise 形态。
+ */
+function nativeApi(path, options = {}) {
+    return new Promise((resolve) => {
+        const method = (options.method || "GET").toUpperCase();
+        const [pathOnly, query = ""] = path.split("?");
+        let envelope;
+        try {
+            envelope = JSON.parse(
+                window.GameLedgerBridge.request(
+                    method, pathOnly, query,
+                    options.body ? String(options.body) : ""
+                )
+            );
+        } catch {
+            resolve({ success: false, message: "本地存储不可用" });
+            return;
+        }
+        let body = envelope && envelope.body;
+        if (typeof body === "string") {
+            try {
+                body = JSON.parse(body);
+            } catch {
+                /* 保留原文，由下方统一兜底 */
+            }
+        }
+        resolve(
+            body && typeof body === "object" && "success" in body
+                ? body
+                : { success: false, message: "本地存储响应异常" }
+        );
+    });
 }
 
 // ── Toast ──────────────────────────────────────────────────────────────────
@@ -277,7 +367,9 @@ function renderTable() {
 
     if (cartridges.length === 0) {
         tableBody.innerHTML =
-            '<tr><td colspan="8" class="empty-state">暂无数据，点击「＋ 新增卡带」开始添加</td></tr>';
+            '<tr><td colspan="8" class="empty-state">暂无数据，点击「＋ 新增」开始添加</td></tr>';
+        cardList.innerHTML =
+            '<div class="empty-state card-empty">暂无数据，点右下角 ＋ 开始添加</div>';
         return;
     }
 
@@ -288,7 +380,7 @@ function renderTable() {
                 <td class="cover-cell">
                     <div class="cover-thumb${c.cover ? "" : " empty"}">${
                         c.cover
-                            ? `<img loading="lazy" src="${coverUrl(c.cover)}" onerror="this.remove()">`
+                            ? `<img loading="lazy" src="${coverUrl(c.cover)}" onerror="if(!coverImgError(this,'${escJsStr(c.cover)}'))this.remove()">`
                             : ""
                     }</div>
                 </td>
@@ -316,35 +408,119 @@ function renderTable() {
         )
         .join("");
 
-    // 绑定事件
-    tableBody.querySelectorAll(".edit-btn").forEach((btn) => {
+    renderCards();
+
+    // 绑定事件（表格与卡片共用选择器）
+    bindRecordEvents(tableBody);
+    bindRecordEvents(cardList);
+}
+
+/** 窄屏卡片列表：封面 + 名称/别名 + 价格/来源/时间 + 操作。 */
+function renderCards() {
+    cardList.innerHTML = cartridges
+        .map(
+            (c) => `
+        <div class="card-item">
+            <div class="card-cover">
+                <div class="cover-thumb${c.cover ? "" : " empty"}">${
+                    c.cover
+                        ? `<img loading="lazy" src="${coverUrl(c.cover)}" onerror="if(!coverImgError(this,'${escJsStr(c.cover)}'))this.remove()">`
+                        : ""
+                }</div>
+            </div>
+            <div class="card-main">
+                <div class="card-title-row">
+                    <span class="name-link" data-id="${c.id}">${esc(c.name)}</span>
+                    <span class="category-tag ${c.category.toLowerCase()}">${esc(c.category)}</span>
+                </div>
+                ${
+                    c.alias
+                        ? `<div class="card-alias" title="别名：${esc(c.alias)}">${esc(c.alias)}</div>`
+                        : ""
+                }
+                ${
+                    c.notes
+                        ? `<div class="card-notes" title="${esc(c.notes)}">${esc(c.notes)}</div>`
+                        : ""
+                }
+                <div class="card-meta-row">
+                    <span class="card-price">¥${formatPrice(c.price)}</span>
+                    ${
+                        c.source
+                            ? `<span class="source-tag ${sourceClass(c.source)}">${esc(c.source)}</span>`
+                            : ""
+                    }
+                </div>
+                <div class="card-date">${formatDate(c.updated_at)}</div>
+            </div>
+            <div class="card-actions">
+                <button class="btn-icon edit-btn" data-id="${c.id}" aria-label="编辑" title="编辑">✎</button>
+                <button class="btn-icon btn-icon-danger delete-btn" data-id="${c.id}" aria-label="删除" title="删除">✕</button>
+            </div>
+        </div>`
+        )
+        .join("");
+}
+
+/** 记录列表事件绑定：编辑/删除/名称点详情（表格与卡片共用）。 */
+function bindRecordEvents(scope) {
+    scope.querySelectorAll(".edit-btn").forEach((btn) => {
         btn.addEventListener("click", () => openEditModal(parseInt(btn.dataset.id)));
     });
-    tableBody.querySelectorAll(".delete-btn").forEach((btn) => {
+    scope.querySelectorAll(".delete-btn").forEach((btn) => {
         btn.addEventListener("click", () => openDeleteConfirm(parseInt(btn.dataset.id)));
     });
-    tableBody.querySelectorAll(".name-link").forEach((el) => {
+    scope.querySelectorAll(".name-link").forEach((el) => {
         el.addEventListener("click", () => openDetailModal(parseInt(el.dataset.id)));
     });
 }
 
+let statCardsBuilt = false;
+
+/** 按大平台配置生成统计卡（总记录、各平台、总花费），只建一次。 */
+function ensureStatCards() {
+    if (statCardsBuilt) return;
+    statCardsBuilt = true;
+    const container = $("#statCards");
+    const costCard = container.querySelector(".accent-cost");
+    for (const plat of PLATFORMS) {
+        const card = document.createElement("div");
+        card.className = `stat-card accent-${plat.class}`;
+        const label = document.createElement("span");
+        label.className = "stat-label";
+        label.textContent = plat.label;
+        const value = document.createElement("span");
+        value.className = "stat-value";
+        value.id = `statPlat-${plat.class}`;
+        value.textContent = "0";
+        card.append(label, value);
+        container.insertBefore(card, costCard);
+    }
+}
+
 function renderStats() {
-    // 统计卡片
-    const nsCount = cartridges.filter((c) => c.category === "NS").length;
-    const ns2Count = cartridges.filter((c) => c.category === "NS2").length;
+    ensureStatCards();
+    // 总记录 + 各分类计数 + 总花费
+    const counts = {};
+    for (const c of cartridges) counts[c.category] = (counts[c.category] || 0) + 1;
     const totalCost = cartridges.reduce((sum, c) => sum + (parseFloat(c.price) || 0), 0);
 
     $("#statTotal").textContent = cartridges.length;
-    $("#statNS").textContent = nsCount;
-    $("#statNS2").textContent = ns2Count;
     $("#statCost").textContent = "¥" + formatMoney(totalCost);
-
-    // 来源分布（仅显示有记录的来源）
-    const counts = {};
-    for (const c of cartridges) {
-        if (c.source) counts[c.source] = (counts[c.source] || 0) + 1;
+    for (const plat of PLATFORMS) {
+        const members = CATEGORIES.filter((c) => c.platform === plat.value).map((c) => c.value);
+        const el = $(`#statPlat-${plat.class}`);
+        if (el) {
+            el.textContent = cartridges.filter((c) => members.includes(c.category)).length;
+        }
     }
-    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+    // 来源分布（仅显示有记录的来源）——与分类计数共用一次遍历
+    const sourceCounts = {};
+    for (const c of cartridges) {
+        if (c.source) sourceCounts[c.source] = (sourceCounts[c.source] || 0) + 1;
+    }
+    const entries = Object.entries(sourceCounts).sort((a, b) => b[1] - a[1]);
     statsBar.innerHTML = entries.length
         ? "来源分布：" +
           entries
@@ -357,10 +533,19 @@ function renderStats() {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+/** HTML 转义：& < > " ' 都处理——esc 的结果既用于文本节点也用于双引号属性
+ * （title="别名：..." 等），引号不转义会被 CSV 导入的数据逃逸出属性。 */
 function esc(str) {
     const div = document.createElement("div");
     div.textContent = str;
-    return div.innerHTML;
+    return div.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+/** 内联 onerror 里的单引号 JS 字符串专用（coverImgError(this,'…')）：
+ * 浏览器先把属性值做 HTML 实体解码再编译 JS，esc 的 &#39; 会解码回 '，
+ * 仍能截断 JS 字符串——必须在 HTML 层之上再做 JS 层转义，让解码后是 \'。 */
+function escJsStr(str) {
+    return esc(str).replace(/\\/g, "&#92;").replace(/&#39;/g, "\\&#39;");
 }
 
 function formatPrice(p) {
@@ -388,7 +573,7 @@ function formatDate(d) {
 
 // ── Modal: Add / Edit ──────────────────────────────────────────────────────
 function openAddModal() {
-    modalTitle.textContent = "新增卡带";
+    modalTitle.textContent = "新增";
     cartridgeForm.reset();
     editIdInput.value = "";
     formSourceCustom.value = "";
@@ -405,7 +590,7 @@ function openAddModal() {
 function openEditModal(id) {
     const record = cartridges.find((c) => c.id === id);
     if (!record) return;
-    modalTitle.textContent = "编辑卡带";
+    modalTitle.textContent = "编辑";
     editIdInput.value = record.id;
     formCategory.value = record.category;
     formName.value = record.name;
@@ -583,7 +768,7 @@ function renderSuggest(gameMatches = []) {
                         : "";
                     return `
                 <div class="suggest-item game-item" data-game="${esc(g.i)}">
-                    <span class="suggest-game-cover"><img loading="lazy" src="${coverUrl(g.i)}" onerror="this.remove()"></span>
+                    <span class="suggest-game-cover"><img loading="lazy" src="${coverUrl(g.i)}" onerror="if(!coverImgError(this,'${escJsStr(g.i)}'))this.remove()"></span>
                     <span class="suggest-name">${esc(gameDisplayName(g))}${subHtml}</span>
                     <span class="suggest-existing">${esc(g.p || "")}</span>
                     <span class="suggest-hint">→ 关联</span>
@@ -625,7 +810,7 @@ function fillFromSuggest(id) {
     selectedGame = record.cover ? GAMES_INDEX[record.cover] || { i: record.cover, t: record.name, d: record.intro || "" } : null;
     introDraft = record.intro || "";
     renderGameChip();
-    modalTitle.textContent = "更新卡带";
+    modalTitle.textContent = "更新";
     submitBtn.textContent = "更新";
     hideSuggest();
 }
@@ -687,7 +872,10 @@ function openDetailModal(id) {
     $("#detailCover").style.display = record.cover ? "" : "none";
     $("#detailCover").src = record.cover ? coverUrl(record.cover) : "";
     $("#detailCover").onerror = () => {
-        $("#detailCover").style.display = "none";
+        // 安卓壳内置封面缺失时回退在线官方地址，仍失败才隐藏
+        if (!coverImgError($("#detailCover"), record.cover)) {
+            $("#detailCover").style.display = "none";
+        }
     };
 
     const tags = [
@@ -786,6 +974,10 @@ function handleSort(field) {
             th.classList.add(sortDir === "asc" ? "sorted-asc" : "sorted-desc");
         }
     });
+    // 同步移动端排序下拉（category/source 不在选项里时跳过）
+    if ([...mobileSort.options].some((o) => o.value === sortField)) {
+        mobileSort.value = sortField;
+    }
     sortData();
     renderTable();
 }
@@ -796,6 +988,9 @@ $("#resetBtn").addEventListener("click", () => {
     searchInput.value = "";
     categoryFilter.value = "";
     sourceFilter.value = "";
+    mobileSort.value = "updated_at";
+    sortField = "updated_at";
+    sortDir = "desc";
     loadData();
 });
 searchInput.addEventListener("keydown", (e) => {
@@ -804,24 +999,77 @@ searchInput.addEventListener("keydown", (e) => {
 categoryFilter.addEventListener("change", loadData);
 sourceFilter.addEventListener("change", loadData);
 
+// 筛选面板折叠（窄屏）：默认收起，点「筛选」展开
+filterToggle.addEventListener("click", () => {
+    const open = filterPanel.classList.toggle("open");
+    filterToggle.classList.toggle("active", open);
+    filterToggle.setAttribute("aria-expanded", String(open));
+});
+
+// 移动端排序（卡片列表无表头）：字段切换，名称升序其余降序
+mobileSort.addEventListener("change", () => {
+    sortField = mobileSort.value;
+    sortDir = sortField === "name" ? "asc" : "desc";
+    sortData();
+    renderTable();
+});
+
 $("#addBtn").addEventListener("click", openAddModal);
+fabAdd.addEventListener("click", openAddModal);
 
 // ── CSV 导出 / 导入 ────────────────────────────────────────────────────────
-$("#exportBtn").addEventListener("click", () => {
+$("#exportBtn").addEventListener("click", async () => {
+    if (NATIVE_MODE) {
+        // 安卓壳：经存储桥取 CSV 文本，由原生层写入系统下载目录
+        const result = await api("/api/export/csv");
+        const data = result.success && result.data;
+        if (!data) {
+            showToast(result.message || "导出失败", "error");
+            return;
+        }
+        const saved = window.GameLedgerBridge.saveFile(
+            data.filename, "text/csv; charset=utf-8", data.content
+        );
+        showToast(
+            saved ? `已导出到：${saved}` : "导出失败，请重试",
+            saved ? "success" : "error"
+        );
+        return;
+    }
     window.location.href = "/api/export/csv";
 });
 
 $("#importBtn").addEventListener("click", () => $("#importFile").click());
 
+/** 读文本文件（FileReader，兼容旧 WebView；file.text() 在 minSdk 24 旧内核上不可靠）。 */
+function readFileText(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsText(file, "utf-8");
+    });
+}
+
 $("#importFile").addEventListener("change", async (e) => {
     const file = e.target.files[0];
     e.target.value = ""; // 允许连续导入同一个文件
     if (!file) return;
-    const fd = new FormData();
-    fd.append("file", file);
     try {
-        const res = await fetch("/api/import/csv", { method: "POST", body: fd });
-        const result = await res.json();
+        let result;
+        if (NATIVE_MODE) {
+            // 安卓壳：无 multipart，读文件文本后以 JSON 提交
+            const content = await readFileText(file);
+            result = await api("/api/import/csv", {
+                method: "POST",
+                body: JSON.stringify({ content }),
+            });
+        } else {
+            const fd = new FormData();
+            fd.append("file", file);
+            const res = await fetch("/api/import/csv", { method: "POST", body: fd });
+            result = await res.json();
+        }
         if (result.success) {
             const firstError = result.data && result.data.errors && result.data.errors[0];
             showToast(firstError ? `${result.message}；${firstError}` : result.message, "success");
@@ -895,6 +1143,21 @@ document.addEventListener("keydown", (e) => {
     }
 });
 
+// ── 安卓返回键（由 MainActivity 注入调用）──────────────────────────────────
+// 返回 true 表示前端已消费（关闭了弹层），false 交给壳做 WebView 后退/退出
+window.__onBackPressed = function () {
+    if (confirmOverlay.classList.contains("active")) {
+        closeDeleteConfirm();
+    } else if (detailOverlay.classList.contains("active")) {
+        closeDetailModal();
+    } else if (modalOverlay.classList.contains("active")) {
+        closeModal();
+    } else {
+        return false;
+    }
+    return true;
+};
+
 // ── 主题切换（深色/浅色）──────────────────────────────────────────────────
 // 首帧主题已在 <head> 内联脚本里确定（无闪烁）；太阳/月亮图标由 CSS
 // 按主题切换（SVG 在方框内精确居中），这里只同步提示文字
@@ -918,6 +1181,7 @@ themeToggle.addEventListener("click", () => {
 syncThemeButton();
 
 // ── Init ───────────────────────────────────────────────────────────────────
+buildCategoryOptions();
 buildSourceOptions();
 syncSourceCustomVisibility();
 loadData();

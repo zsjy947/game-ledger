@@ -23,6 +23,10 @@
     --success: #4ec9b0;
     --ns-color: #e84142;
     --ns2-color: #4a90d9;
+    --ps4-color: #3f8ac9;
+    --ps5-color: #7aa9e0;
+    --nintendo-color: #e60012;
+    --playstation-color: #0070d1;
     --src-fudai: #ff9668;
     --src-v3: #6fb1e8;
     --radius: 8px;
@@ -51,6 +55,10 @@
     --success: #178f6d;
     --ns-color: #d32627;
     --ns2-color: #2f6fb5;
+    --ps4-color: #2f6fb5;
+    --ps5-color: #5d8fc4;
+    --nintendo-color: #d32627;
+    --playstation-color: #0058b8;
     --src-fudai: #b3552a;
     --src-v3: #2f6fb5;
     --shadow: 0 4px 24px rgba(140, 60, 60, 0.14);
@@ -185,7 +193,8 @@ header {
 }
 
 .search-group input,
-.search-group select {
+.search-group select,
+.filter-panel select {
     padding: 10px 14px;
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -197,7 +206,8 @@ header {
 }
 
 .search-group input:focus,
-.search-group select:focus {
+.search-group select:focus,
+.filter-panel select:focus {
     border-color: var(--primary);
 }
 
@@ -295,6 +305,18 @@ header {
 }
 .stat-card.accent-ns2::before {
     background: var(--ns2-color);
+}
+.stat-card.accent-ps4::before {
+    background: var(--ps4-color);
+}
+.stat-card.accent-ps5::before {
+    background: var(--ps5-color);
+}
+.stat-card.accent-nintendo::before {
+    background: var(--nintendo-color);
+}
+.stat-card.accent-playstation::before {
+    background: var(--playstation-color);
 }
 .stat-card.accent-cost::before {
     background: var(--success);
@@ -430,6 +452,14 @@ td .btn {
 .category-tag.ns2 {
     background: color-mix(in srgb, var(--ns2-color) 18%, transparent);
     color: var(--ns2-color);
+}
+.category-tag.ps4 {
+    background: color-mix(in srgb, var(--ps4-color) 18%, transparent);
+    color: var(--ps4-color);
+}
+.category-tag.ps5 {
+    background: color-mix(in srgb, var(--ps5-color) 18%, transparent);
+    color: var(--ps5-color);
 }
 
 /* 来源标签 */
@@ -1106,5 +1136,349 @@ td .btn {
 
     .footer-meta {
         text-align: left;
+    }
+}
+
+/* ── 移动端布局（≤720px 竖屏优先，安卓壳 WebView 主战场）─────────────────── */
+
+/* 桌面端：隐藏移动组件；筛选面板作为工具栏内的一行内联下拉 */
+.card-list,
+.fab {
+    display: none;
+}
+
+.filter-panel {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+@keyframes slideUpSheet {
+    from {
+        opacity: 0.6;
+        transform: translateY(60px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 720px) {
+    .container {
+        padding: 16px 12px 100px; /* 底部给 FAB 留空间 */
+    }
+
+    .brand-text h1 {
+        font-size: 20px;
+    }
+
+    /* 工具栏：搜索置顶一行，筛选折叠进面板 */
+    .toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .search-group {
+        flex-direction: row;
+        flex-wrap: nowrap;
+    }
+
+    .search-group input {
+        flex: 1;
+        width: auto;
+        min-width: 0;
+        font-size: 16px; /* ≥16px 防 iOS 聚焦缩放 */
+    }
+
+    .search-group .btn {
+        min-height: 44px;
+        white-space: nowrap;
+    }
+
+    .filter-panel {
+        display: none;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 12px;
+    }
+
+    .filter-panel.open {
+        display: grid;
+    }
+
+    .filter-panel select {
+        width: 100%;
+        min-height: 44px;
+        font-size: 14px;
+    }
+
+    .toolbar-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+
+    .toolbar-actions .btn {
+        min-height: 44px;
+    }
+
+    /* 统计卡片 2×2 */
+    .stat-cards {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .stat-value {
+        font-size: 18px;
+    }
+
+    /* 表格 → 卡片列表 */
+    .table-wrapper {
+        display: none;
+    }
+
+    .card-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .card-item {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+    }
+
+    .card-item:active {
+        background: var(--surface-hover);
+    }
+
+    .card-cover .cover-thumb {
+        width: 56px;
+        height: 56px;
+    }
+
+    .card-main {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .card-title-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    .card-title-row .name-link {
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .card-alias,
+    .card-notes {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 2px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .card-meta-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 6px;
+        flex-wrap: wrap;
+    }
+
+    .card-price {
+        font-weight: 700;
+        font-size: 15px;
+        color: var(--primary);
+    }
+
+    .card-date {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-top: 4px;
+    }
+
+    .card-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .card-empty {
+        text-align: center;
+        padding: 32px 0;
+    }
+
+    /* 图标按钮：44×44 触摸目标 */
+    .btn-icon {
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: var(--tint);
+        color: var(--text);
+        font-size: 16px;
+        line-height: 1;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+    }
+
+    .btn-icon-danger {
+        color: var(--danger);
+        border-color: var(--danger);
+    }
+
+    /* 右下角浮动新增按钮（替代工具栏「＋新增卡带」） */
+    .fab {
+        display: flex;
+        position: fixed;
+        right: 20px;
+        bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        border: none;
+        background: var(--primary);
+        color: #fff;
+        font-size: 26px;
+        line-height: 1;
+        align-items: center;
+        justify-content: center;
+        box-shadow: var(--shadow);
+        cursor: pointer;
+        z-index: 900;
+    }
+
+    .fab:active {
+        transform: scale(0.94);
+    }
+
+    #addBtn {
+        display: none;
+    }
+
+    /* 模态框 → 底部抽屉：贴底、纵向滚动、上滑入场 */
+    .modal-overlay {
+        align-items: flex-end;
+    }
+
+    .modal {
+        width: 100%;
+        max-width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 16px 16px 0 0;
+        border-bottom: none;
+        padding: 20px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+        animation: slideUpSheet 0.25s ease;
+    }
+
+    /* 详情弹窗纵向堆叠：封面在上、信息与走势图在下 */
+    .modal-detail .detail-body {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .detail-cover-wrap {
+        width: 180px;
+    }
+
+    .detail-info {
+        width: 100%;
+    }
+
+    .detail-name {
+        text-align: center;
+        font-size: 18px;
+    }
+
+    /* 表单控件：16px 字号 + 44px 高触摸目标 */
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        font-size: 16px;
+        min-height: 44px;
+    }
+
+    .form-actions {
+        position: sticky;
+        bottom: 0;
+        background: var(--surface);
+        padding-top: 12px;
+        margin-top: 8px;
+    }
+
+    .form-actions .btn {
+        flex: 1;
+        min-height: 44px;
+    }
+
+    /* 防长按选中/呼出系统菜单（输入框除外） */
+    body {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+    }
+
+    input,
+    textarea {
+        -webkit-user-select: text;
+        user-select: text;
+    }
+
+    .name-link {
+        -webkit-touch-callout: none;
+    }
+
+    .footer-inner {
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-start;
+    }
+}
+
+/* 触屏设备无 hover：降级悬浮样式，保留按压反馈 */
+@media (max-width: 720px) and (hover: none) {
+    .btn:hover {
+        transform: none;
+    }
+
+    .card-item:hover {
+        background: var(--surface);
+        border-color: var(--border);
+    }
+
+    .name-link:hover {
+        color: var(--text);
+        border-bottom-color: transparent;
+    }
+
+    .btn:active {
+        transform: scale(0.97);
     }
 }

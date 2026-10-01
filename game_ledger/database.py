@@ -59,8 +59,59 @@ def _add_alias_column(conn) -> None:
         conn.execute("ALTER TABLE cartridges ADD COLUMN alias TEXT NOT NULL DEFAULT ''")
 
 
+def _relax_category_constraint(conn) -> None:
+    """v5 → v6：重建 cartridges 去掉 CHECK (category IN ('NS','NS2'))。
+
+    SQLite 无法 ALTER 约束，只能建新表搬运；分类合法性从 v6 起由
+    records.VALID_CATEGORIES 在写入前校验（DB 层不再关心，新增平台无需迁移）。
+    搬运保留 id 与全部列，price_history 经外键继续有效；连接上先关外键，
+    避免 DROP 父表触发约束（executescript 前无打开的事务，PRAGMA 生效）。
+    先清掉可能残留的半成品 cartridges_v6（上次迁移中断留下的），保证
+    可重入——对齐安卓侧 StorageBridge 的同款修法；极端情况下 cartridges
+    主表若已不存在，下方 INSERT...SELECT 会失败，属可接受（迁移窗口极窄，
+    且迁移前已有 backup-v5 兜底）。
+    """
+    conn.execute("PRAGMA foreign_keys = OFF")
+    # 防半成品：清掉上次中断迁移可能残留的 cartridges_v6 再重建
+    conn.execute("DROP TABLE IF EXISTS cartridges_v6")
+    conn.executescript(
+        """
+        CREATE TABLE cartridges_v6 (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category TEXT NOT NULL,
+            name TEXT NOT NULL,
+            price REAL NOT NULL DEFAULT 0,
+            notes TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            source TEXT NOT NULL DEFAULT '',
+            cover TEXT NOT NULL DEFAULT '',
+            intro TEXT NOT NULL DEFAULT '',
+            alias TEXT NOT NULL DEFAULT ''
+        );
+        INSERT INTO cartridges_v6 (id, category, name, price, notes, created_at,
+                                   updated_at, source, cover, intro, alias)
+            SELECT id, category, name, price, notes, created_at,
+                   updated_at, source, cover, intro, alias
+            FROM cartridges;
+        DROP TABLE cartridges;
+        ALTER TABLE cartridges_v6 RENAME TO cartridges;
+        """
+    )
+    conn.execute("PRAGMA foreign_keys = ON")
+    # DROP TABLE 连带删除了旧索引，全部重建
+    for sql in (
+        "CREATE INDEX IF NOT EXISTS idx_cartridges_name ON cartridges(name)",
+        "CREATE INDEX IF NOT EXISTS idx_cartridges_category ON cartridges(category)",
+        "CREATE INDEX IF NOT EXISTS idx_cartridges_updated_at ON cartridges(updated_at)",
+        "CREATE INDEX IF NOT EXISTS idx_cartridges_source ON cartridges(source)",
+        "PRAGMA foreign_key_check",
+    ):
+        conn.execute(sql)
+
+
 # 当前 schema 版本
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 _TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS cartridges (
@@ -94,6 +145,9 @@ MIGRATIONS: dict[int, list] = {
     ],
     5: [
         _add_alias_column,
+    ],
+    6: [
+        _relax_category_constraint,
     ],
 }
 
@@ -152,7 +206,7 @@ def _to_dict(row) -> dict | None:
 # ── 查询 ────────────────────────────────────────────────────────────────────
 
 def _escape_like(term: str) -> str:
-    """转义 LIKE 通配符：用户输入的 % _ \ 按字面匹配，不当通配符。"""
+    r"""转义 LIKE 通配符：用户输入的 % _ \ 按字面匹配，不当通配符。"""
     return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 

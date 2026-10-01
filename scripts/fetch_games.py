@@ -29,6 +29,7 @@
 import argparse
 import html
 import json
+import os
 import re
 import sys
 import time
@@ -274,9 +275,13 @@ def enrich_with_chinese(records: list[dict], hk_path: Path) -> None:
 
 def save_catalog(records: list[dict]) -> None:
     ASSETS_DIR.mkdir(parents=True, exist_ok=True)
-    (ASSETS_DIR / "games.json").write_text(
+    # 原子写：先写临时文件再替换，进程中断不会留下半个 games.json
+    games_json = ASSETS_DIR / "games.json"
+    tmp_path = games_json.with_suffix(".json.tmp")
+    tmp_path.write_text(
         json.dumps(records, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
     )
+    os.replace(tmp_path, games_json)
     STATIC_DIR.mkdir(parents=True, exist_ok=True)
     (STATIC_DIR / "games.js").write_text(
         "window.__GAMES__=" + json.dumps(records, ensure_ascii=False, separators=(",", ":")),

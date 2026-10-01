@@ -18,10 +18,12 @@
     </script>
     <link rel="stylesheet" href="/static/style.css">
     <script>
-        /* 服务端注入：来源预设选项与版本号（前后端单一数据源） */
+        /* 服务端注入：来源预设/分类与平台配置/版本号（前后端单一数据源） */
         window.__APP__ = {
             version: "{{ version }}",
-            sourcePresets: {{ source_presets | tojson }}
+            sourcePresets: {{ source_presets | tojson }},
+            categories: {{ categories | tojson }},
+            platforms: {{ platforms | tojson }}
         };
     </script>
 </head>
@@ -49,42 +51,38 @@
             </button>
         </header>
 
-        <!-- 搜索 & 操作栏 -->
+        <!-- 搜索 & 操作栏：移动端搜索置顶，筛选折叠（见 style.css ≤720px 断点） -->
         <div class="toolbar">
             <div class="search-group">
-                <input type="text" id="searchInput" placeholder="🔍 搜索卡带名称…" autocomplete="off">
-                <select id="categoryFilter">
-                    <option value="">全部分类</option>
-                    <option value="NS">NS</option>
-                    <option value="NS2">NS2</option>
-                </select>
-                <select id="sourceFilter">
+                <input type="text" id="searchInput" placeholder="🔍 搜索名称…" autocomplete="off">
+                <button id="searchBtn" class="btn btn-secondary">搜索</button>
+                <button id="filterToggle" class="btn btn-outline" type="button" aria-expanded="false">筛选</button>
+            </div>
+            <div class="filter-panel" id="filterPanel">
+                <select id="categoryFilter" aria-label="分类筛选"></select>
+                <select id="sourceFilter" aria-label="来源筛选">
                     <option value="">全部来源</option>
                 </select>
-                <button id="searchBtn" class="btn btn-secondary">搜索</button>
+                <select id="mobileSort" aria-label="排序">
+                    <option value="updated_at">最近更新</option>
+                    <option value="name">按名称</option>
+                    <option value="price">按价格</option>
+                </select>
                 <button id="resetBtn" class="btn btn-outline">重置</button>
             </div>
             <div class="toolbar-actions">
                 <button id="exportBtn" class="btn btn-outline" title="导出全部记录为 CSV（可用 Excel 打开）">导出 CSV</button>
                 <button id="importBtn" class="btn btn-outline" title="从 CSV 批量导入（分类+名称重复的自动跳过）">导入 CSV</button>
                 <input type="file" id="importFile" accept=".csv,text/csv" hidden>
-                <button id="addBtn" class="btn btn-primary">＋ 新增卡带</button>
+                <button id="addBtn" class="btn btn-primary">＋ 新增</button>
             </div>
         </div>
 
-        <!-- 统计卡片 -->
+        <!-- 统计卡片：总记录 + 各分类（JS 按 __APP__.categories 动态生成）+ 总花费 -->
         <div class="stat-cards" id="statCards">
             <div class="stat-card">
                 <span class="stat-label">总记录</span>
                 <span class="stat-value" id="statTotal">-</span>
-            </div>
-            <div class="stat-card accent-ns">
-                <span class="stat-label">NS 卡带</span>
-                <span class="stat-value" id="statNS">-</span>
-            </div>
-            <div class="stat-card accent-ns2">
-                <span class="stat-label">NS2 卡带</span>
-                <span class="stat-value" id="statNS2">-</span>
             </div>
             <div class="stat-card accent-cost">
                 <span class="stat-label">总花费</span>
@@ -111,32 +109,34 @@
                     </tr>
                 </thead>
                 <tbody id="tableBody">
-                    <tr><td colspan="8" class="empty-state">暂无数据，点击「＋ 新增卡带」开始添加</td></tr>
+                    <tr><td colspan="8" class="empty-state">暂无数据，点击「＋ 新增」开始添加</td></tr>
                 </tbody>
             </table>
         </div>
+
+        <!-- 移动端卡片列表（≤720px 显示，替代 8 列表格） -->
+        <div class="card-list" id="cardList"></div>
     </div>
+
+    <!-- 移动端浮动新增按钮（≤720px 显示） -->
+    <button id="fabAdd" class="fab" type="button" aria-label="新增">＋</button>
 
     <!-- 模态框：新增 / 编辑 -->
     <div class="modal-overlay" id="modalOverlay">
         <div class="modal">
             <div class="modal-header">
-                <h2 id="modalTitle">新增卡带</h2>
+                <h2 id="modalTitle">新增</h2>
                 <button class="modal-close" id="modalClose">&times;</button>
             </div>
             <form id="cartridgeForm">
                 <input type="hidden" id="editId">
                 <div class="form-group">
                     <label for="formCategory">分类 <span class="required">*</span></label>
-                    <select id="formCategory" required>
-                        <option value="">请选择分类</option>
-                        <option value="NS">NS</option>
-                        <option value="NS2">NS2</option>
-                    </select>
+                    <select id="formCategory" required></select>
                 </div>
                 <div class="form-group suggest-wrapper">
                     <label for="formName">名称 <span class="required">*</span> <span class="label-hint">（输入名称可联想已有记录与内置游戏库）</span></label>
-                    <input type="text" id="formName" placeholder="输入卡带名称" required autocomplete="off">
+                    <input type="text" id="formName" placeholder="输入名称" required autocomplete="off">
                     <div class="suggest-dropdown" id="suggestDropdown"></div>
                 </div>
                 <div class="form-group game-link-group" id="gameLinkGroup">
@@ -181,7 +181,7 @@
             <div class="modal-header">
                 <h2>确认删除</h2>
             </div>
-            <p style="margin: 16px 0;">确定要删除这张卡带记录吗？此操作不可撤销。</p>
+            <p style="margin: 16px 0;">确定要删除这条记录吗？此操作不可撤销。</p>
             <div class="form-actions">
                 <button class="btn btn-outline" id="confirmCancel">取消</button>
                 <button class="btn btn-danger" id="confirmDelete">确认删除</button>
@@ -193,7 +193,7 @@
     <div class="modal-overlay" id="detailOverlay">
         <div class="modal modal-detail">
             <div class="modal-header">
-                <h2>卡带详情</h2>
+                <h2>详情</h2>
                 <button class="modal-close" id="detailClose">&times;</button>
             </div>
             <div class="detail-body">

@@ -12,6 +12,17 @@ build/
 release/
 .android-build/
 
+# 安卓构建：APK 产物与 www 构建生成物（prepare_assets.py 重建）
+android/output/
+android/app/src/main/assets/www/
+android/app/src/main/res/mipmap-*/
+
+# 安卓发布签名密钥（丢失无法覆盖升级，绝不能提交或删除）
+keystore/
+
+# 旧方案遗留的调试签名（重建后不应再出现）
+android/debug.keystore
+
 # 迁移备份库与运行时封面缓存（正式数据库 data/prices.db 保留与否由使用者决定）
 data/prices.backup-*.db
 data/covers/
